@@ -3,31 +3,44 @@ import math
 import yfinance as yf
 from langchain_core.tools import tool
 
+from logger import logger
+
 
 @tool
-def market_data(symbols: list[str]):
+def market_data(
+    symbols: list[str],
+    include_history: bool = False,
+):
     """
     Get market and fundamental data for one or more stock symbols.
 
     Returns stock price, volume, market cap, valuation,
-    growth, profitability, financial health, cash flow,
-    and historical price data.
+    growth, profitability, financial health, and cash flow.
+
+    Historical price data is only included when include_history=True.
     """
 
     try:
+        logger.info(
+            f"market_data called for symbols: {symbols} | "
+            f"include_history={include_history}"
+        )
+
         results = []
 
         for symbol in symbols:
             stock = yf.Ticker(symbol)
 
             info = stock.info
-            history = stock.history(period="6mo")
 
             historical_prices = {}
 
-            for date, price in history["Close"].items():
-                if not math.isnan(price):
-                    historical_prices[str(date.date())] = round(price, 2)
+            if include_history:
+                history = stock.history(period="6mo")
+
+                for date, price in history["Close"].items():
+                    if not math.isnan(price):
+                        historical_prices[str(date.date())] = round(price, 2)
 
             data = {
                 "symbol": symbol,
@@ -60,12 +73,16 @@ def market_data(symbols: list[str]):
 
                 # Cash generation
                 "free_cash_flow": info.get("freeCashflow"),
-
-                # Price history
-                "history": historical_prices,
             }
 
+            if include_history:
+                data["history"] = historical_prices
+
             results.append(data)
+
+        logger.info(
+            f"market_data completed successfully for symbols: {symbols}"
+        )
 
         return {
             "success": True,
@@ -73,6 +90,8 @@ def market_data(symbols: list[str]):
         }
 
     except Exception as e:
+        logger.exception("market_data failed")
+
         return {
             "success": False,
             "error": f"Market data error: {str(e)}",

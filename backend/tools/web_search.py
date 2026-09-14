@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 from tavily import TavilyClient
 from langchain_core.tools import tool
 
+from logger import logger
+
 
 load_dotenv()
 
@@ -20,7 +22,11 @@ def web_search(query: str, max_results: int = 5):
     """
 
     try:
+        logger.info(f"web_search called for query: {query}")
+
         if not TAVILY_API_KEY:
+            logger.error("web_search failed: TAVILY_API_KEY is missing")
+
             return {
                 "success": False,
                 "error": "TAVILY_API_KEY is missing.",
@@ -46,12 +52,18 @@ def web_search(query: str, max_results: int = 5):
                 }
             )
 
+        logger.info(
+            f"web_search completed successfully: {len(results)} results returned"
+        )
+
         return {
             "success": True,
             "data": results,
         }
 
     except Exception as e:
+        logger.exception("web_search failed")
+
         return {
             "success": False,
             "error": f"Web search error: {str(e)}",

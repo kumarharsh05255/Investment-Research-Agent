@@ -3,6 +3,8 @@ from pathlib import Path
 
 from langchain_core.tools import tool
 
+from logger import logger
+
 
 CONFIG_PATH = (
     Path(__file__).parent.parent
@@ -37,11 +39,26 @@ def investment_recommendation(
     """
 
     try:
+        logger.info(
+            f"investment_recommendation called for symbol: {symbol}"
+        )
+
         rules = load_rules()
 
-        results = {}
+        values = {
+            "revenue_growth": revenue_growth,
+            "eps_growth": eps_growth,
+            "profit_margin": profit_margin,
+            "pe_ratio": pe_ratio,
+            "return_on_equity": return_on_equity,
+            "debt_to_equity": debt_to_equity,
+            "current_ratio": current_ratio,
+            "free_cash_flow": free_cash_flow,
+        }
 
-        # Metrics where higher values are generally better
+        classifications = {}
+
+        # Metrics where higher values are better
         high_is_good = {
             "revenue_growth": revenue_growth,
             "eps_growth": eps_growth,
@@ -53,65 +70,85 @@ def investment_recommendation(
         for metric, value in high_is_good.items():
 
             if value is None:
-                results[metric] = "unknown"
+                classifications[metric] = "unknown"
                 continue
 
             rule = rules[metric]
 
             if value >= rule["good"]:
-                results[metric] = "good"
+                classifications[metric] = "good"
 
             elif value >= rule["neutral"]:
-                results[metric] = "neutral"
+                classifications[metric] = "neutral"
 
             else:
-                results[metric] = "bad"
+                classifications[metric] = "bad"
 
-        # Metrics where lower values are generally better
-        low_is_good = {
-            "pe_ratio": pe_ratio,
-            "debt_to_equity": debt_to_equity,
-        }
+        # P/E ratio
+        if pe_ratio is None:
+            classifications["pe_ratio"] = "unknown"
 
-        for metric, value in low_is_good.items():
+        elif pe_ratio <= 0:
+            classifications["pe_ratio"] = "bad"
 
-            if value is None:
-                results[metric] = "unknown"
-                continue
+        else:
+            rule = rules["pe_ratio"]
 
-            rule = rules[metric]
+            if pe_ratio <= rule["good_max"]:
+                classifications["pe_ratio"] = "good"
 
-            if value <= rule["good_max"]:
-                results[metric] = "good"
-
-            elif value <= rule["neutral_max"]:
-                results[metric] = "neutral"
+            elif pe_ratio <= rule["neutral_max"]:
+                classifications["pe_ratio"] = "neutral"
 
             else:
-                results[metric] = "bad"
+                classifications["pe_ratio"] = "bad"
+
+        # Debt-to-equity
+        if debt_to_equity is None:
+            classifications["debt_to_equity"] = "unknown"
+
+        else:
+            rule = rules["debt_to_equity"]
+
+            if debt_to_equity <= rule["good_max"]:
+                classifications["debt_to_equity"] = "good"
+
+            elif debt_to_equity <= rule["neutral_max"]:
+                classifications["debt_to_equity"] = "neutral"
+
+            else:
+                classifications["debt_to_equity"] = "bad"
 
         # Free cash flow
         if free_cash_flow is None:
-            results["free_cash_flow"] = "unknown"
+            classifications["free_cash_flow"] = "unknown"
 
         elif free_cash_flow > rules["free_cash_flow"]["good"]:
-            results["free_cash_flow"] = "good"
+            classifications["free_cash_flow"] = "good"
 
         else:
-            results["free_cash_flow"] = "bad"
+            classifications["free_cash_flow"] = "bad"
 
-        # Ignore unavailable metrics when deciding the final result
+        # Combine value + classification
+        metrics = {}
+
+        for metric in values:
+            metrics[metric] = {
+                "value": values[metric],
+                "classification": classifications[metric],
+            }
+
+        # Ignore unknown metrics
         known_results = [
-            value
-            for value in results.values()
-            if value != "unknown"
+            classification
+            for classification in classifications.values()
+            if classification != "unknown"
         ]
 
         good_count = known_results.count("good")
         neutral_count = known_results.count("neutral")
         bad_count = known_results.count("bad")
 
-        # Decide overall fundamental result
         if good_count > neutral_count and good_count > bad_count:
             overall = "good"
             recommendation = "BUY"
@@ -124,7 +161,11 @@ def investment_recommendation(
             overall = "neutral"
             recommendation = "HOLD"
 
-        # Separate summary from detailed metric results
+        logger.info(
+            f"investment_recommendation completed for {symbol}: "
+            f"{recommendation} | classifications={classifications}"
+        )
+
         return {
             "success": True,
             "data": {
@@ -134,12 +175,14 @@ def investment_recommendation(
                     "recommendation": recommendation,
                 },
                 "details": {
-                    "metrics": results,
+                    "metrics": metrics,
                 },
             },
         }
 
     except Exception as e:
+        logger.exception("investment_recommendation failed")
+
         return {
             "success": False,
             "error": f"Recommendation tool error: {str(e)}",
@@ -149,15 +192,15 @@ def investment_recommendation(
 if __name__ == "__main__":
     result = investment_recommendation.invoke(
         {
-            "symbol": "AAPL",
-            "revenue_growth": 0.164,
-            "eps_growth": 0.287,
-            "profit_margin": 0.276,
-            "pe_ratio": 36.08,
-            "return_on_equity": 1.487,
-            "debt_to_equity": 78.445,
-            "current_ratio": 1.003,
-            "free_cash_flow": 107721875456,
+            "symbol": "NVDA",
+            "revenue_growth": 0.059,
+            "eps_growth": 0.278,
+            "profit_margin": 0.637,
+            "pe_ratio": 27.63,
+            "return_on_equity": 1.172,
+            "debt_to_equity": 16.97,
+            "current_ratio": 4.59,
+            "free_cash_flow": 41810000000,
         }
     )
 

@@ -1,6 +1,8 @@
 from datetime import datetime
 from langchain_core.tools import tool
 
+from logger import logger
+
 
 @tool
 def current_datetime():
@@ -12,18 +14,26 @@ def current_datetime():
     """
 
     try:
+        logger.info("current_datetime called")
+
         now = datetime.now()
+
+        result = {
+            "date": now.strftime("%Y-%m-%d"),
+            "time": now.strftime("%H:%M:%S"),
+            "day": now.strftime("%A"),
+        }
+
+        logger.info("current_datetime completed successfully")
 
         return {
             "success": True,
-            "data": {
-                "date": now.strftime("%Y-%m-%d"),
-                "time": now.strftime("%H:%M:%S"),
-                "day": now.strftime("%A"),
-            },
+            "data": result,
         }
 
     except Exception as e:
+        logger.exception("current_datetime failed")
+
         return {
             "success": False,
             "error": f"Date/time error: {str(e)}",

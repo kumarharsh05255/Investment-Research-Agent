@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from langchain_core.tools import tool
 
+from logger import logger
+
 
 load_dotenv()
 
@@ -21,7 +23,11 @@ def financial_news(query: str, page_size: int = 5):
     """
 
     try:
+        logger.info(f"financial_news called for query: {query}")
+
         if not NEWS_API_KEY:
+            logger.error("financial_news failed: NEWS_API_KEY is missing")
+
             return {
                 "success": False,
                 "error": "NEWS_API_KEY is missing.",
@@ -68,24 +74,36 @@ def financial_news(query: str, page_size: int = 5):
                 }
             )
 
+        logger.info(
+            f"financial_news completed successfully: {len(articles)} articles returned"
+        )
+
         return {
             "success": True,
             "data": articles,
         }
 
     except httpx.TimeoutException:
+        logger.error("financial_news failed: request timed out")
+
         return {
             "success": False,
             "error": "News API request timed out.",
         }
 
     except httpx.HTTPStatusError as e:
+        logger.error(
+            f"financial_news failed: HTTP {e.response.status_code}"
+        )
+
         return {
             "success": False,
             "error": f"News API HTTP error: {e.response.status_code}",
         }
 
     except Exception as e:
+        logger.exception("financial_news failed")
+
         return {
             "success": False,
             "error": f"News tool error: {str(e)}",
