@@ -1,0 +1,40 @@
+{
+  "revenue_growth": {
+    "good": 0.15,
+    "neutral": 0.05
+  },
+
+  "eps_growth": {
+    "good": 0.15,
+    "neutral": 0.05
+  },
+
+  "profit_margin": {
+    "good": 0.20,
+    "neutral": 0.10
+  },
+
+  "pe_ratio": {
+    "good_max": 25,
+    "neutral_max": 35
+  },
+
+  "return_on_equity": {
+    "good": 0.20,
+    "neutral": 0.10
+  },
+
+  "debt_to_equity": {
+    "good_max": 50,
+    "neutral_max": 100
+  },
+
+  "current_ratio": {
+    "good": 1.5,
+    "neutral": 1.0
+  },
+
+  "free_cash_flow": {
+    "good": 0
+  }
+}
