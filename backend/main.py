@@ -1,3 +1,5 @@
+import yfinance as yf
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,20 +19,34 @@ app.add_middleware(
 )
 
 
+# -------------------------
+# Basic
+# -------------------------
+
 @app.get("/")
 def home():
-    return {"message": "Investment Research Agent API"}
+    return {
+        "message": "Investment Research Agent API"
+    }
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok"
+    }
 
 
 @app.get("/supabase-test")
 def supabase_test():
-    return {"connected": supabase is not None}
+    return {
+        "connected": supabase is not None
+    }
 
+
+# -------------------------
+# Research
+# -------------------------
 
 @app.post("/research")
 def research(data: dict):
@@ -72,7 +88,7 @@ def research(data: dict):
 
             session_id = session_result.data[0]["id"]
 
-        # Run agent using previous conversation history
+        # Run agent with previous conversation
         response = run_agent(
             query=query,
             history=history,
@@ -228,12 +244,29 @@ def add_to_watchlist(data: dict):
             "error": "Symbol is required",
         }
 
+    symbol = symbol.upper()
+
     try:
+        # Check if company is already in watchlist
+        existing = (
+            supabase
+            .table("watchlist")
+            .select("id")
+            .eq("symbol", symbol)
+            .execute()
+        )
+
+        if existing.data:
+            return {
+                "success": False,
+                "error": f"{symbol} is already in the watchlist",
+            }
+
         result = (
             supabase
             .table("watchlist")
             .insert({
-                "symbol": symbol.upper(),
+                "symbol": symbol,
                 "company_name": company_name,
             })
             .execute()
@@ -254,17 +287,19 @@ def add_to_watchlist(data: dict):
 @app.delete("/watchlist/{symbol}")
 def remove_from_watchlist(symbol: str):
     try:
+        symbol = symbol.upper()
+
         (
             supabase
             .table("watchlist")
             .delete()
-            .eq("symbol", symbol.upper())
+            .eq("symbol", symbol)
             .execute()
         )
 
         return {
             "success": True,
-            "message": f"{symbol.upper()} removed from watchlist",
+            "message": f"{symbol} removed from watchlist",
         }
 
     except Exception as e:
@@ -312,6 +347,21 @@ def create_tag(data: dict):
         }
 
     try:
+        # Check if tag already exists
+        existing = (
+            supabase
+            .table("tags")
+            .select("id")
+            .eq("name", name)
+            .execute()
+        )
+
+        if existing.data:
+            return {
+                "success": False,
+                "error": f"Tag '{name}' already exists",
+            }
+
         result = (
             supabase
             .table("tags")
@@ -361,12 +411,23 @@ def delete_tag(tag_id: str):
 # -------------------------
 
 @app.get("/reports")
-def get_reports():
+def get_reports(search: str = None):
     try:
-        result = (
+        query = (
             supabase
             .table("saved_reports")
             .select("*, tags(name)")
+        )
+
+        # Optional report search
+        if search:
+            query = query.ilike(
+                "title",
+                f"%{search}%"
+            )
+
+        result = (
+            query
             .order("created_at", desc=True)
             .execute()
         )
@@ -437,6 +498,46 @@ def save_report(data: dict):
         }
 
 
+@app.patch("/reports/{report_id}")
+def update_report(report_id: str, data: dict):
+    try:
+        update_data = {}
+
+        if "title" in data:
+            update_data["title"] = data["title"]
+
+        if "content" in data:
+            update_data["content"] = data["content"]
+
+        if "tag_id" in data:
+            update_data["tag_id"] = data["tag_id"]
+
+        if not update_data:
+            return {
+                "success": False,
+                "error": "Nothing to update",
+            }
+
+        result = (
+            supabase
+            .table("saved_reports")
+            .update(update_data)
+            .eq("id", report_id)
+            .execute()
+        )
+
+        return {
+            "success": True,
+            "data": result.data,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
 @app.delete("/reports/{report_id}")
 def delete_report(report_id: str):
     try:
@@ -451,6 +552,51 @@ def delete_report(report_id: str):
         return {
             "success": True,
             "message": "Report deleted",
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+# -------------------------
+# Market History
+# -------------------------
+
+@app.get("/market/{symbol}/history")
+def get_market_history(symbol: str):
+    try:
+        symbol = symbol.upper()
+
+        stock = yf.Ticker(symbol)
+
+        history = stock.history(
+            period="6mo"
+        )
+
+        if history.empty:
+            return {
+                "success": False,
+                "error": f"No market data found for {symbol}",
+            }
+
+        prices = []
+
+        for date, row in history.iterrows():
+            prices.append({
+                "date": str(date.date()),
+                "close": round(
+                    float(row["Close"]),
+                    2,
+                ),
+            })
+
+        return {
+            "success": True,
+            "symbol": symbol,
+            "data": prices,
         }
 
     except Exception as e:
