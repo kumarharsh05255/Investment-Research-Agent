@@ -137,6 +137,9 @@ function App() {
           activePage={
             activePage
           }
+          setActivePage={
+            handleNavigation
+          }
         />
 
 

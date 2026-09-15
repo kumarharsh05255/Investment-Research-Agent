@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 import {
   ArrowRight,
   Clock3,
@@ -552,9 +555,153 @@ function HistoryMessage({
         }`}
       >
 
-        <p className="whitespace-pre-wrap">
-          {message.content}
-        </p>
+        {isUser ? (
+          <p className="whitespace-pre-wrap">
+            {message.content}
+          </p>
+        ) : (
+          <ReactMarkdown
+            remarkPlugins={[
+              remarkGfm,
+            ]}
+            components={{
+
+              h1: ({
+                children,
+              }) => (
+                <h1 className="mb-4 mt-6 text-2xl font-semibold tracking-tight first:mt-0">
+                  {children}
+                </h1>
+              ),
+
+
+              h2: ({
+                children,
+              }) => (
+                <h2 className="mb-3 mt-6 border-b border-[#eeeeea] pb-2 text-xl font-semibold tracking-tight first:mt-0">
+                  {children}
+                </h2>
+              ),
+
+
+              h3: ({
+                children,
+              }) => (
+                <h3 className="mb-2 mt-5 text-base font-semibold text-black">
+                  {children}
+                </h3>
+              ),
+
+
+              h4: ({
+                children,
+              }) => (
+                <h4 className="mb-2 mt-4 text-sm font-semibold text-black">
+                  {children}
+                </h4>
+              ),
+
+
+              p: ({
+                children,
+              }) => (
+                <p className="mb-4 text-[#4c4c48] last:mb-0">
+                  {children}
+                </p>
+              ),
+
+
+              ul: ({
+                children,
+              }) => (
+                <ul className="mb-5 list-disc space-y-2 pl-5 text-[#4c4c48]">
+                  {children}
+                </ul>
+              ),
+
+
+              ol: ({
+                children,
+              }) => (
+                <ol className="mb-5 list-decimal space-y-2 pl-5 text-[#4c4c48]">
+                  {children}
+                </ol>
+              ),
+
+
+              table: ({
+                children,
+              }) => (
+                <div className="my-5 overflow-x-auto rounded-xl border border-[#deded9]">
+
+                  <table className="w-full min-w-[600px] border-collapse text-left text-sm">
+                    {children}
+                  </table>
+
+                </div>
+              ),
+
+
+              thead: ({
+                children,
+              }) => (
+                <thead className="bg-[#f4f4f0]">
+                  {children}
+                </thead>
+              ),
+
+
+              th: ({
+                children,
+              }) => (
+                <th className="border-b border-[#deded9] px-4 py-3 text-xs font-semibold text-black">
+                  {children}
+                </th>
+              ),
+
+
+              td: ({
+                children,
+              }) => (
+                <td className="border-b border-[#eeeeea] px-4 py-3 align-top text-[#555]">
+                  {children}
+                </td>
+              ),
+
+
+              strong: ({
+                children,
+              }) => (
+                <strong className="font-semibold text-black">
+                  {children}
+                </strong>
+              ),
+
+
+              a: ({
+                href,
+                children,
+              }) => (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-black underline underline-offset-4"
+                >
+                  {children}
+                </a>
+              ),
+
+
+              hr: () => (
+                <hr className="my-6 border-[#eeeeea]" />
+              ),
+
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
+        )}
 
       </div>
 

@@ -114,6 +114,16 @@ function DashboardPage({
         loading={
           loading
         }
+        onResearchHistory={() =>
+          setActivePage?.(
+            "history"
+          )
+        }
+        onWatchlist={() =>
+          setActivePage?.(
+            "watchlist"
+          )
+        }
       />
 
 
@@ -218,6 +228,8 @@ function Overview({
   sessions,
   watchlist,
   loading,
+  onResearchHistory,
+  onWatchlist,
 }) {
   return (
     <section className="mt-8 grid gap-4 md:grid-cols-2">
@@ -231,6 +243,9 @@ function Overview({
         }
         description="Persistent research conversations"
         icon={History}
+        onClick={
+          onResearchHistory
+        }
       />
 
 
@@ -243,6 +258,9 @@ function Overview({
         }
         description="Companies currently monitored"
         icon={Eye}
+        onClick={
+          onWatchlist
+        }
       />
 
     </section>
@@ -255,9 +273,14 @@ function OverviewCard({
   value,
   description,
   icon: Icon,
+  onClick,
 }) {
   return (
-    <article className="rounded-[20px] border border-[#deded9] bg-white p-6">
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full rounded-[20px] border border-[#deded9] bg-white p-6 text-left transition duration-200 hover:-translate-y-0.5 hover:border-[#c8c8c2] hover:shadow-[0_12px_35px_rgba(0,0,0,0.05)]"
+    >
 
       <div className="flex items-start justify-between">
 
@@ -280,13 +303,15 @@ function OverviewCard({
         </div>
 
 
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white transition duration-200 group-hover:scale-105">
+
           <Icon size={15} />
+
         </div>
 
       </div>
 
-    </article>
+    </button>
   );
 }
 
