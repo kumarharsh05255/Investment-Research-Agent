@@ -1,3 +1,5 @@
+import ast
+import json
 import os
 
 from dotenv import load_dotenv
@@ -44,9 +46,37 @@ agent = create_agent(
 )
 
 
-def run_agent(query: str, history: list | None = None):
+def parse_tool_content(content):
+    """
+    Convert tool message content into normal Python data
+    when possible.
+    """
+
+    if isinstance(content, (dict, list)):
+        return content
+
+    if not isinstance(content, str):
+        return content
+
     try:
-        logger.info(f"Research query: {query}")
+        return json.loads(content)
+
+    except (json.JSONDecodeError, TypeError):
+        try:
+            return ast.literal_eval(content)
+
+        except (ValueError, SyntaxError):
+            return content
+
+
+def run_agent(
+    query: str,
+    history: list | None = None,
+):
+    try:
+        logger.info(
+            f"Research query: {query}"
+        )
 
         messages = [
             {
@@ -55,6 +85,7 @@ def run_agent(query: str, history: list | None = None):
             }
         ]
 
+        # Add previous conversation messages
         if history:
             for message in history:
                 messages.append({
@@ -62,30 +93,73 @@ def run_agent(query: str, history: list | None = None):
                     "content": message["content"],
                 })
 
+        # Add current user question
         messages.append({
             "role": "user",
             "content": query,
         })
 
+        # Run agent
         result = agent.invoke(
             {
                 "messages": messages
             }
         )
 
-        logger.info("Research completed")
+        final_response = (
+            result["messages"][-1].content
+        )
 
-        return result["messages"][-1].content
+        # Collect tool results used by the agent
+        tool_results = []
+
+        for message in result["messages"]:
+            if getattr(
+                message,
+                "type",
+                None,
+            ) == "tool":
+
+                tool_results.append({
+                    "tool": getattr(
+                        message,
+                        "name",
+                        "unknown",
+                    ),
+                    "data": parse_tool_content(
+                        message.content
+                    ),
+                })
+
+        logger.info(
+            "Research completed | "
+            f"tools used: "
+            f"{[item['tool'] for item in tool_results]}"
+        )
+
+        return {
+            "response": final_response,
+            "tool_results": tool_results,
+        }
 
     except Exception as e:
         logger.exception("Agent error")
 
-        return f"Agent error: {str(e)}"
+        return {
+            "response": (
+                f"Agent error: {str(e)}"
+            ),
+            "tool_results": [],
+        }
 
 
 if __name__ == "__main__":
-    response = run_agent(
-        "What is Apple's current P/E ratio?"
+    result = run_agent(
+        "Compare Apple and Microsoft."
     )
 
-    print(response)
+    print("\nRESPONSE:\n")
+    print(result["response"])
+
+    print("\nTOOL RESULTS:\n")
+    print(result["tool_results"])

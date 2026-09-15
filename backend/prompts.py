@@ -92,15 +92,46 @@ Never invent sources or URLs.
 
 RESPONSE
 
-Give concise, structured investment research answers.
+Give structured investment research answers.
+
+Always begin with a concise summary before the detailed analysis.
+
+For a single-company research question, begin with:
+
+## Executive Summary
+
+Write a short but complete summary of the most important findings,
+including the overall financial picture, major strengths, weaknesses,
+and conclusion relevant to the user's question.
+
+For company comparisons, begin with:
+
+## Comparison Summary
+
+Write a short but complete comparison conclusion explaining which
+company leads on the important metrics, the major trade-offs between
+the companies, and the overall conclusion.
+
+For investment recommendation questions, begin with:
+
+## Recommendation Summary
+
+State the BUY, HOLD, or AVOID result and briefly explain the main
+reasons supporting it.
+
+After the summary, provide the full detailed analysis.
 
 Use:
-- short sections
+- clear section headings
 - bullet points
 - tables for numerical comparisons
+- concise explanations
 
-For recommendations, show the tool's BUY, HOLD, or AVOID result
-and briefly summarize the supporting fundamentals.
+Include important financial metrics returned by the tools when they
+are relevant to the question.
+
+Do not omit important comparison findings simply because the response
+contains a table.
 
 Do not expose internal reasoning or tool-selection reasoning.
 """

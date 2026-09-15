@@ -86,12 +86,21 @@ def research(data: dict):
                 .execute()
             )
 
-            session_id = session_result.data[0]["id"]
+            session_id = (
+                session_result
+                .data[0]["id"]
+            )
 
-        # Run agent with previous conversation
-        response = run_agent(
+        # Run agent
+        agent_result = run_agent(
             query=query,
             history=history,
+        )
+
+        response = agent_result["response"]
+
+        tool_results = (
+            agent_result["tool_results"]
         )
 
         # Save user message
@@ -123,6 +132,7 @@ def research(data: dict):
             "session_id": session_id,
             "query": query,
             "response": response,
+            "tool_results": tool_results,
         }
 
     except Exception as e:
@@ -143,7 +153,10 @@ def get_sessions():
             supabase
             .table("research_sessions")
             .select("*")
-            .order("created_at", desc=True)
+            .order(
+                "created_at",
+                desc=True,
+            )
             .execute()
         )
 
@@ -160,13 +173,18 @@ def get_sessions():
 
 
 @app.get("/sessions/{session_id}/messages")
-def get_session_messages(session_id: str):
+def get_session_messages(
+    session_id: str
+):
     try:
         result = (
             supabase
             .table("messages")
             .select("*")
-            .eq("session_id", session_id)
+            .eq(
+                "session_id",
+                session_id,
+            )
             .order("created_at")
             .execute()
         )
@@ -184,13 +202,18 @@ def get_session_messages(session_id: str):
 
 
 @app.delete("/sessions/{session_id}")
-def delete_session(session_id: str):
+def delete_session(
+    session_id: str
+):
     try:
         (
             supabase
             .table("research_sessions")
             .delete()
-            .eq("id", session_id)
+            .eq(
+                "id",
+                session_id,
+            )
             .execute()
         )
 
@@ -217,7 +240,10 @@ def get_watchlist():
             supabase
             .table("watchlist")
             .select("*")
-            .order("created_at", desc=True)
+            .order(
+                "created_at",
+                desc=True,
+            )
             .execute()
         )
 
@@ -234,9 +260,13 @@ def get_watchlist():
 
 
 @app.post("/watchlist")
-def add_to_watchlist(data: dict):
+def add_to_watchlist(
+    data: dict
+):
     symbol = data.get("symbol")
-    company_name = data.get("company_name")
+    company_name = data.get(
+        "company_name"
+    )
 
     if not symbol:
         return {
@@ -247,19 +277,24 @@ def add_to_watchlist(data: dict):
     symbol = symbol.upper()
 
     try:
-        # Check if company is already in watchlist
         existing = (
             supabase
             .table("watchlist")
             .select("id")
-            .eq("symbol", symbol)
+            .eq(
+                "symbol",
+                symbol,
+            )
             .execute()
         )
 
         if existing.data:
             return {
                 "success": False,
-                "error": f"{symbol} is already in the watchlist",
+                "error": (
+                    f"{symbol} is already "
+                    "in the watchlist"
+                ),
             }
 
         result = (
@@ -267,7 +302,9 @@ def add_to_watchlist(data: dict):
             .table("watchlist")
             .insert({
                 "symbol": symbol,
-                "company_name": company_name,
+                "company_name": (
+                    company_name
+                ),
             })
             .execute()
         )
@@ -285,7 +322,9 @@ def add_to_watchlist(data: dict):
 
 
 @app.delete("/watchlist/{symbol}")
-def remove_from_watchlist(symbol: str):
+def remove_from_watchlist(
+    symbol: str
+):
     try:
         symbol = symbol.upper()
 
@@ -293,148 +332,19 @@ def remove_from_watchlist(symbol: str):
             supabase
             .table("watchlist")
             .delete()
-            .eq("symbol", symbol)
-            .execute()
-        )
-
-        return {
-            "success": True,
-            "message": f"{symbol} removed from watchlist",
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-        }
-
-
-# -------------------------
-# Tags
-# -------------------------
-
-@app.get("/tags")
-def get_tags():
-    try:
-        result = (
-            supabase
-            .table("tags")
-            .select("*")
-            .order("created_at", desc=True)
-            .execute()
-        )
-
-        return {
-            "success": True,
-            "data": result.data,
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-        }
-
-
-@app.post("/tags")
-def create_tag(data: dict):
-    name = data.get("name")
-
-    if not name:
-        return {
-            "success": False,
-            "error": "Tag name is required",
-        }
-
-    try:
-        # Check if tag already exists
-        existing = (
-            supabase
-            .table("tags")
-            .select("id")
-            .eq("name", name)
-            .execute()
-        )
-
-        if existing.data:
-            return {
-                "success": False,
-                "error": f"Tag '{name}' already exists",
-            }
-
-        result = (
-            supabase
-            .table("tags")
-            .insert({
-                "name": name,
-            })
-            .execute()
-        )
-
-        return {
-            "success": True,
-            "data": result.data,
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-        }
-
-
-@app.delete("/tags/{tag_id}")
-def delete_tag(tag_id: str):
-    try:
-        (
-            supabase
-            .table("tags")
-            .delete()
-            .eq("id", tag_id)
-            .execute()
-        )
-
-        return {
-            "success": True,
-            "message": "Tag deleted",
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-        }
-
-
-# -------------------------
-# Saved Reports
-# -------------------------
-
-@app.get("/reports")
-def get_reports(search: str = None):
-    try:
-        query = (
-            supabase
-            .table("saved_reports")
-            .select("*, tags(name)")
-        )
-
-        # Optional report search
-        if search:
-            query = query.ilike(
-                "title",
-                f"%{search}%"
+            .eq(
+                "symbol",
+                symbol,
             )
-
-        result = (
-            query
-            .order("created_at", desc=True)
             .execute()
         )
 
         return {
             "success": True,
-            "data": result.data,
+            "message": (
+                f"{symbol} removed "
+                "from watchlist"
+            ),
         }
 
     except Exception as e:
@@ -444,114 +354,96 @@ def get_reports(search: str = None):
         }
 
 
-@app.post("/reports")
-def save_report(data: dict):
-    session_id = data.get("session_id")
-    title = data.get("title")
-    content = data.get("content")
-    tag_id = data.get("tag_id")
+# -------------------------
+# Company Overview
+# -------------------------
 
-    if not session_id:
-        return {
-            "success": False,
-            "error": "Session ID is required",
-        }
-
-    if not title:
-        return {
-            "success": False,
-            "error": "Title is required",
-        }
-
-    if not content:
-        return {
-            "success": False,
-            "error": "Content is required",
-        }
-
+@app.get("/market/{symbol}")
+def get_market_overview(
+    symbol: str
+):
     try:
-        report_data = {
-            "session_id": session_id,
-            "title": title,
-            "content": content,
-        }
+        symbol = symbol.upper()
 
-        if tag_id:
-            report_data["tag_id"] = tag_id
+        stock = yf.Ticker(symbol)
+        info = stock.info
 
-        result = (
-            supabase
-            .table("saved_reports")
-            .insert(report_data)
-            .execute()
-        )
-
-        return {
-            "success": True,
-            "data": result.data,
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-        }
-
-
-@app.patch("/reports/{report_id}")
-def update_report(report_id: str, data: dict):
-    try:
-        update_data = {}
-
-        if "title" in data:
-            update_data["title"] = data["title"]
-
-        if "content" in data:
-            update_data["content"] = data["content"]
-
-        if "tag_id" in data:
-            update_data["tag_id"] = data["tag_id"]
-
-        if not update_data:
+        if not info:
             return {
                 "success": False,
-                "error": "Nothing to update",
+                "error": (
+                    "No market data found "
+                    f"for {symbol}"
+                ),
             }
 
-        result = (
-            supabase
-            .table("saved_reports")
-            .update(update_data)
-            .eq("id", report_id)
-            .execute()
-        )
+        data = {
+            "symbol": symbol,
+            "company_name": (
+                info.get("longName")
+            ),
+
+            # Market
+            "price": (
+                info.get("currentPrice")
+            ),
+            "previous_close": (
+                info.get("previousClose")
+            ),
+            "volume": (
+                info.get("volume")
+            ),
+            "market_cap": (
+                info.get("marketCap")
+            ),
+
+            # Valuation
+            "pe_ratio": (
+                info.get("trailingPE")
+            ),
+            "eps": (
+                info.get("trailingEps")
+            ),
+
+            # Growth
+            "revenue": (
+                info.get("totalRevenue")
+            ),
+            "revenue_growth": (
+                info.get("revenueGrowth")
+            ),
+            "eps_growth": (
+                info.get("earningsGrowth")
+            ),
+
+            # Profitability
+            "profit_margin": (
+                info.get("profitMargins")
+            ),
+            "return_on_equity": (
+                info.get("returnOnEquity")
+            ),
+
+            # Financial health
+            "debt_to_equity": (
+                info.get("debtToEquity")
+            ),
+            "current_ratio": (
+                info.get("currentRatio")
+            ),
+
+            # Cash flow
+            "free_cash_flow": (
+                info.get("freeCashflow")
+            ),
+        }
 
         return {
             "success": True,
-            "data": result.data,
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-        }
-
-
-@app.delete("/reports/{report_id}")
-def delete_report(report_id: str):
-    try:
-        (
-            supabase
-            .table("saved_reports")
-            .delete()
-            .eq("id", report_id)
-            .execute()
-        )
-
-        return {
-            "success": True,
-            "message": "Report deleted",
+            "source": (
+                "Yahoo Finance via yfinance"
+            ),
+            "data": data,
         }
 
     except Exception as e:
@@ -566,7 +458,9 @@ def delete_report(report_id: str):
 # -------------------------
 
 @app.get("/market/{symbol}/history")
-def get_market_history(symbol: str):
+def get_market_history(
+    symbol: str
+):
     try:
         symbol = symbol.upper()
 
@@ -579,16 +473,23 @@ def get_market_history(symbol: str):
         if history.empty:
             return {
                 "success": False,
-                "error": f"No market data found for {symbol}",
+                "error": (
+                    "No market data found "
+                    f"for {symbol}"
+                ),
             }
 
         prices = []
 
         for date, row in history.iterrows():
             prices.append({
-                "date": str(date.date()),
+                "date": str(
+                    date.date()
+                ),
                 "close": round(
-                    float(row["Close"]),
+                    float(
+                        row["Close"]
+                    ),
                     2,
                 ),
             })
@@ -596,6 +497,9 @@ def get_market_history(symbol: str):
         return {
             "success": True,
             "symbol": symbol,
+            "source": (
+                "Yahoo Finance via yfinance"
+            ),
             "data": prices,
         }
 
