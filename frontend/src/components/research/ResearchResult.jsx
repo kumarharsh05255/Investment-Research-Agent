@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileText,
   Newspaper,
+  Brain,
 } from "lucide-react";
 
 import PriceChart from "../charts/PriceChart";
@@ -18,7 +19,6 @@ import SentimentBadge from "./SentimentBadge";
 function ResearchResult({
   messages,
   loading,
-  toolResults = [],
   priceHistory = {},
   marketLoading,
 }) {
@@ -30,15 +30,6 @@ function ResearchResult({
   }
 
 
-  /*
-   * Group messages into:
-   *
-   * User
-   * Assistant
-   *
-   * Then reverse the groups so the
-   * newest conversation appears first.
-   */
   const conversations = [];
 
   for (
@@ -54,58 +45,6 @@ function ResearchResult({
   conversations.reverse();
 
 
-  /*
-   * Latest structured tool results
-   */
-
-  const marketTool =
-    toolResults.find(
-      (item) =>
-        item.tool ===
-        "market_data"
-    );
-
-  const companies =
-    marketTool?.data?.data ||
-    [];
-
-
-  const newsTool =
-    toolResults.find(
-      (item) =>
-        item.tool ===
-        "financial_news"
-    );
-
-  const newsArticles =
-    newsTool?.data?.data ||
-    [];
-
-
-  const documentTool =
-    toolResults.find(
-      (item) =>
-        item.tool ===
-        "document_search"
-    );
-
-  const documentSources =
-    documentTool?.data?.data ||
-    [];
-
-
-  const recommendationTool =
-    toolResults.find(
-      (item) =>
-        item.tool ===
-        "investment_recommendation"
-    );
-
-  const recommendation =
-    recommendationTool?.data?.data ||
-    null;
-
-
   return (
     <div className="mt-10 space-y-8">
 
@@ -119,9 +58,86 @@ function ResearchResult({
             conversationIndex === 0;
 
 
+          const assistantMessage =
+            conversation.find(
+              (message) =>
+                message.role ===
+                "assistant"
+            );
+
+
+          /*
+           * Tool results belong to this
+           * specific assistant message.
+           */
+          const toolResults =
+            getMessageToolResults(
+              assistantMessage
+            );
+
+
+          const marketTool =
+            toolResults.find(
+              (item) =>
+                item.tool ===
+                "market_data"
+            );
+
+
+          const companies =
+            marketTool
+              ?.data?.data ||
+            [];
+
+
+          const newsTool =
+            toolResults.find(
+              (item) =>
+                item.tool ===
+                "financial_news"
+            );
+
+
+          const newsArticles =
+            newsTool
+              ?.data?.data ||
+            [];
+
+
+          const documentTool =
+            toolResults.find(
+              (item) =>
+                item.tool ===
+                "document_search"
+            );
+
+
+          const documentSources =
+            documentTool
+              ?.data?.data ||
+            [];
+
+
+          const recommendationTool =
+            toolResults.find(
+              (item) =>
+                item.tool ===
+                "investment_recommendation"
+            );
+
+
+          const recommendation =
+            recommendationTool
+              ?.data?.data ||
+            null;
+
+
           return (
             <div
-              key={`conversation-${conversationIndex}`}
+              key={
+                assistantMessage?.id ||
+                `conversation-${conversationIndex}`
+              }
               className="space-y-6"
             >
 
@@ -172,25 +188,13 @@ function ResearchResult({
               )}
 
 
-              {/*
-               * Loading belongs only
-               * to latest conversation
-               */}
-
               {isLatest &&
                 loading && (
                   <LoadingResearch />
                 )}
 
 
-              {/*
-               * Structured results also
-               * belong only to the latest
-               * research request.
-               */}
-
-              {isLatest &&
-                !loading &&
+              {!loading &&
                 recommendation && (
                   <RecommendationSection
                     recommendation={
@@ -200,8 +204,7 @@ function ResearchResult({
                 )}
 
 
-              {isLatest &&
-                !loading &&
+              {!loading &&
                 companies.length ===
                   1 && (
                   <Fundamentals
@@ -212,8 +215,7 @@ function ResearchResult({
                 )}
 
 
-              {isLatest &&
-                !loading &&
+              {!loading &&
                 companies.length >
                   1 && (
                   <ComparisonTable
@@ -224,8 +226,7 @@ function ResearchResult({
                 )}
 
 
-              {isLatest &&
-                !loading &&
+              {!loading &&
                 companies.length >
                   0 && (
                   <PriceCharts
@@ -242,8 +243,7 @@ function ResearchResult({
                 )}
 
 
-              {isLatest &&
-                !loading &&
+              {!loading &&
                 newsArticles.length >
                   0 && (
                   <NewsSection
@@ -254,13 +254,32 @@ function ResearchResult({
                 )}
 
 
-              {isLatest &&
-                !loading &&
+              {!loading &&
                 documentSources.length >
                   0 && (
                   <DocumentSources
                     sources={
                       documentSources
+                    }
+                  />
+                )}
+
+
+              {/*
+               * Every completed answer
+               * receives provenance.
+               *
+               * Tools used:
+               * show actual tool sources.
+               *
+               * No tools:
+               * show LLM Internal Knowledge.
+               */}
+              {!loading &&
+                assistantMessage && (
+                  <ToolsAndSources
+                    toolResults={
+                      toolResults
                     }
                   />
                 )}
@@ -272,6 +291,51 @@ function ResearchResult({
 
     </div>
   );
+}
+
+
+/*
+ * Safely read persisted tool results.
+ */
+function getMessageToolResults(
+  message
+) {
+  if (!message) {
+    return [];
+  }
+
+
+  const results =
+    message.tool_results;
+
+
+  if (
+    Array.isArray(results)
+  ) {
+    return results;
+  }
+
+
+  if (
+    typeof results ===
+    "string"
+  ) {
+    try {
+      const parsed =
+        JSON.parse(results);
+
+      return Array.isArray(
+        parsed
+      )
+        ? parsed
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+
+  return [];
 }
 
 
@@ -1420,6 +1484,571 @@ function DocumentSources({
 
     </section>
   );
+}
+
+
+/*
+ * Provenance section.
+ *
+ * If tools were used:
+ * show actual tools and sources.
+ *
+ * If no tools were used:
+ * show LLM Internal Knowledge.
+ */
+function ToolsAndSources({
+  toolResults,
+}) {
+  const uniqueTools = [
+    ...new Map(
+      toolResults.map(
+        (item) => [
+          item.tool,
+          item,
+        ]
+      )
+    ).values(),
+  ];
+
+
+  return (
+    <section className="overflow-hidden rounded-[22px] border border-[#deded9] bg-white">
+
+      <div className="border-b border-[#eeeeea] px-6 py-5">
+
+        <div className="flex items-center gap-2">
+
+          <Database
+            size={15}
+          />
+
+          <h3 className="text-sm font-semibold">
+            Sources & Tools Used
+          </h3>
+
+        </div>
+
+
+        <p className="mt-1.5 text-xs text-[#888]">
+
+          Evidence and information
+          sources used for this answer.
+
+        </p>
+
+      </div>
+
+
+      <div className="divide-y divide-[#eeeeea]">
+
+        {uniqueTools.length ===
+        0 ? (
+
+          <InternalKnowledgeSource />
+
+        ) : (
+
+          uniqueTools.map(
+            (tool) => (
+              <ToolSourceItem
+                key={tool.tool}
+                tool={tool}
+              />
+            )
+          )
+
+        )}
+
+      </div>
+
+    </section>
+  );
+}
+
+
+/*
+ * Shown when the assistant answered
+ * without calling an external tool.
+ */
+function InternalKnowledgeSource() {
+  return (
+    <div className="flex flex-col justify-between gap-4 px-6 py-5 md:flex-row md:items-center">
+
+      <div>
+
+        <div className="flex items-center gap-2">
+
+          <Brain
+            size={14}
+          />
+
+          <p className="text-xs font-semibold text-black">
+
+            LLM Internal Knowledge
+
+          </p>
+
+        </div>
+
+
+        <p className="mt-1.5 pl-[22px] text-[11px] leading-5 text-[#888]">
+
+          General financial knowledge
+          generated by the language
+          model. No external research
+          tool was used.
+
+        </p>
+
+      </div>
+
+
+      <div className="shrink-0 rounded-full border border-[#deded9] bg-[#f7f7f4] px-3 py-1.5 text-[10px] font-medium text-[#666]">
+
+        Language Model
+
+      </div>
+
+    </div>
+  );
+}
+
+
+function ToolSourceItem({
+  tool,
+}) {
+  const name =
+    tool.tool;
+
+  const data =
+    tool.data;
+
+
+  /*
+   * Market data
+   */
+  if (
+    name === "market_data"
+  ) {
+    return (
+      <SourceRow
+        title="Market Data"
+        source={
+          data?.source ||
+          "Yahoo Finance via yfinance"
+        }
+        description="Current company fundamentals and market metrics"
+      />
+    );
+  }
+
+
+  /*
+   * Financial news
+   */
+  if (
+    name === "financial_news"
+  ) {
+    const articles =
+      data?.data ||
+      [];
+
+
+    return (
+      <div className="px-6 py-5">
+
+        <SourceTitle
+          title="Financial News"
+          description="Recent financial news used in this research"
+        />
+
+
+        {articles.length >
+          0 && (
+          <div className="mt-4 space-y-3 pl-[21px]">
+
+            {articles.map(
+              (
+                article,
+                index
+              ) => (
+                <div
+                  key={
+                    article.url ||
+                    `${article.title}-${index}`
+                  }
+                  className="flex flex-wrap items-center gap-2 text-xs text-[#666]"
+                >
+
+                  <span className="font-medium text-black">
+
+                    {
+                      article.source ||
+                      "News source"
+                    }
+
+                  </span>
+
+
+                  {article.published_at && (
+                    <>
+
+                      <span className="text-[#bbb]">
+                        •
+                      </span>
+
+
+                      <span>
+
+                        {formatDate(
+                          article.published_at
+                        )}
+
+                      </span>
+
+                    </>
+                  )}
+
+
+                  {article.url && (
+                    <a
+                      href={
+                        article.url
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-auto inline-flex items-center gap-1 font-semibold text-black underline underline-offset-4"
+                    >
+
+                      Source
+
+                      <ExternalLink
+                        size={11}
+                      />
+
+                    </a>
+                  )}
+
+                </div>
+              )
+            )}
+
+          </div>
+        )}
+
+      </div>
+    );
+  }
+
+
+  /*
+   * RAG document search
+   */
+  if (
+    name === "document_search"
+  ) {
+    const documents =
+      data?.data ||
+      [];
+
+
+    return (
+      <div className="px-6 py-5">
+
+        <SourceTitle
+          title="Document Search"
+          description="Local RAG knowledge base"
+        />
+
+
+        {documents.length >
+          0 && (
+          <div className="mt-4 space-y-2 pl-[21px]">
+
+            {documents.map(
+              (
+                document,
+                index
+              ) => (
+                <div
+                  key={`${document.source}-${document.page}-${index}`}
+                  className="flex flex-wrap items-center gap-2 text-xs text-[#666]"
+                >
+
+                  <FileText
+                    size={12}
+                  />
+
+
+                  <span className="font-medium text-black">
+
+                    {
+                      document.source
+                    }
+
+                  </span>
+
+
+                  {document.page !=
+                    null && (
+                    <>
+
+                      <span className="text-[#bbb]">
+                        •
+                      </span>
+
+
+                      <span>
+
+                        Page{" "}
+                        {
+                          document.page
+                        }
+
+                      </span>
+
+                    </>
+                  )}
+
+                </div>
+              )
+            )}
+
+          </div>
+        )}
+
+      </div>
+    );
+  }
+
+
+  /*
+   * Web search
+   */
+  if (
+    name === "web_search"
+  ) {
+    const webResults =
+      data?.data ||
+      [];
+
+
+    return (
+      <div className="px-6 py-5">
+
+        <SourceTitle
+          title="Web Search"
+          description="Current external financial research"
+        />
+
+
+        {Array.isArray(
+          webResults
+        ) &&
+          webResults.length >
+            0 && (
+            <div className="mt-4 space-y-3 pl-[21px]">
+
+              {webResults.map(
+                (
+                  result,
+                  index
+                ) => (
+                  <div
+                    key={
+                      result.url ||
+                      index
+                    }
+                    className="flex flex-wrap items-center gap-2 text-xs text-[#666]"
+                  >
+
+                    <span className="font-medium text-black">
+
+                      {
+                        result.title ||
+                        "Web source"
+                      }
+
+                    </span>
+
+
+                    {result.url && (
+                      <a
+                        href={
+                          result.url
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-auto inline-flex items-center gap-1 font-semibold text-black underline underline-offset-4"
+                      >
+
+                        Source
+
+                        <ExternalLink
+                          size={11}
+                        />
+
+                      </a>
+                    )}
+
+                  </div>
+                )
+              )}
+
+            </div>
+          )}
+
+
+        {(!Array.isArray(
+          webResults
+        ) ||
+          webResults.length ===
+            0) && (
+          <div className="mt-4 pl-[21px]">
+
+            <span className="rounded-full border border-[#deded9] bg-[#f7f7f4] px-3 py-1.5 text-[10px] font-medium text-[#666]">
+
+              Tavily
+
+            </span>
+
+          </div>
+        )}
+
+      </div>
+    );
+  }
+
+
+  /*
+   * Current date/time
+   */
+  if (
+    name ===
+    "current_datetime"
+  ) {
+    return (
+      <SourceRow
+        title="Current Date & Time"
+        source="System date/time"
+        description="Temporal context used for current or recent research"
+      />
+    );
+  }
+
+
+  /*
+   * Recommendation engine
+   */
+  if (
+    name ===
+    "investment_recommendation"
+  ) {
+    return (
+      <SourceRow
+        title="Investment Recommendation"
+        source="Fundamental scoring rules"
+        description="BUY, HOLD or AVOID classification generated from configured rules"
+      />
+    );
+  }
+
+
+  /*
+   * Fallback for future tools
+   */
+  return (
+    <SourceRow
+      title={
+        formatToolName(
+          name
+        )
+      }
+      source="Internal research tool"
+      description="Used by the research agent"
+    />
+  );
+}
+
+
+function SourceRow({
+  title,
+  source,
+  description,
+}) {
+  return (
+    <div className="flex flex-col justify-between gap-4 px-6 py-5 md:flex-row md:items-center">
+
+      <SourceTitle
+        title={title}
+        description={
+          description
+        }
+      />
+
+
+      <div className="shrink-0 rounded-full border border-[#deded9] bg-[#f7f7f4] px-3 py-1.5 text-[10px] font-medium text-[#666]">
+
+        {source}
+
+      </div>
+
+    </div>
+  );
+}
+
+
+function SourceTitle({
+  title,
+  description,
+}) {
+  return (
+    <div>
+
+      <div className="flex items-center gap-2">
+
+        <CheckCircle2
+          size={13}
+          className="text-emerald-600"
+        />
+
+        <p className="text-xs font-semibold text-black">
+
+          {title}
+
+        </p>
+
+      </div>
+
+
+      <p className="mt-1.5 pl-[21px] text-[11px] text-[#888]">
+
+        {description}
+
+      </p>
+
+    </div>
+  );
+}
+
+
+function formatToolName(
+  name
+) {
+  if (!name) {
+    return "Research Tool";
+  }
+
+
+  return name
+    .split("_")
+    .map(
+      (word) =>
+        word.charAt(0)
+          .toUpperCase() +
+        word.slice(1)
+    )
+    .join(" ");
 }
 
 

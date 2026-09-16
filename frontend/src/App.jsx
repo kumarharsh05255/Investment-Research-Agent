@@ -5,7 +5,6 @@ import Topbar from "./components/layout/Topbar";
 
 import DashboardPage from "./pages/DashboardPage";
 import HistoryPage from "./pages/HistoryPage";
-import ResearchPage from "./pages/ResearchPage";
 import WatchlistPage from "./pages/WatchlistPage";
 
 
@@ -18,18 +17,9 @@ function App() {
     setResearchSessionId,
   ] = useState(null);
 
-  const [
-    researchDraft,
-    setResearchDraft,
-  ] = useState("");
 
-
-  function openNewResearch(
-    query = ""
-  ) {
-    setResearchSessionId(null);
-    setResearchDraft(query);
-    setActivePage("research");
+  function handleNavigation(page) {
+    setActivePage(page);
   }
 
 
@@ -40,48 +30,19 @@ function App() {
       sessionId
     );
 
-    setResearchDraft("");
-    setActivePage("research");
+    setActivePage(
+      "dashboard"
+    );
   }
 
 
-  function handleNavigation(
-    page
-  ) {
-    if (
-      page === "research"
-    ) {
-      openNewResearch();
-      return;
-    }
-
-    setActivePage(page);
+  function clearResearchSession() {
+    setResearchSessionId(null);
   }
 
 
   function renderPage() {
     switch (activePage) {
-      case "research":
-        return (
-          <ResearchPage
-            initialSessionId={
-              researchSessionId
-            }
-            initialQuery={
-              researchDraft
-            }
-            onNewSession={() => {
-              setResearchSessionId(
-                null
-              );
-
-              setResearchDraft(
-                ""
-              );
-            }}
-          />
-        );
-
 
       case "history":
         return (
@@ -106,11 +67,11 @@ function App() {
             setActivePage={
               handleNavigation
             }
-            onOpenSession={
-              openResearchSession
+            initialSessionId={
+              researchSessionId
             }
-            onStartResearch={
-              openNewResearch
+            onClearSession={
+              clearResearchSession
             }
           />
         );
@@ -136,9 +97,6 @@ function App() {
         <Topbar
           activePage={
             activePage
-          }
-          setActivePage={
-            handleNavigation
           }
         />
 

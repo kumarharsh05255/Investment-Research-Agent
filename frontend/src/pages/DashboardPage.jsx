@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import {
   ArrowRight,
   Clock3,
-  Eye,
-  History,
   TrendingUp,
 } from "lucide-react";
 
 import QuickActions from "../components/dashboard/QuickActions";
+import ResearchPage from "./ResearchPage";
 
 import {
   getSessions,
@@ -18,8 +20,8 @@ import {
 
 function DashboardPage({
   setActivePage,
-  onOpenSession,
-  onStartResearch,
+  initialSessionId,
+  onClearSession,
 }) {
   const [sessions, setSessions] =
     useState([]);
@@ -30,10 +32,29 @@ function DashboardPage({
   const [loading, setLoading] =
     useState(true);
 
+  const [
+    researchMode,
+    setResearchMode,
+  ] = useState(
+    Boolean(initialSessionId)
+  );
+
+  const [
+    researchDraft,
+    setResearchDraft,
+  ] = useState("");
+
 
   useEffect(() => {
     loadDashboard();
   }, []);
+
+
+  useEffect(() => {
+    if (initialSessionId) {
+      setResearchMode(true);
+    }
+  }, [initialSessionId]);
 
 
   async function loadDashboard() {
@@ -74,22 +95,53 @@ function DashboardPage({
           )
         );
       }
+
     } catch (error) {
       console.error(
         "Dashboard error:",
         error
       );
+
     } finally {
       setLoading(false);
     }
   }
 
 
-  function handleQuickAction(
-    query
+  function startResearch(
+    query = ""
   ) {
-    onStartResearch?.(
+    onClearSession?.();
+
+    setResearchDraft(
       query
+    );
+
+    setResearchMode(
+      true
+    );
+  }
+
+
+  function handleEndResearch() {
+    setResearchMode(false);
+    setResearchDraft("");
+
+    onClearSession?.();
+
+    loadDashboard();
+  }
+
+
+  function openSession(
+    session
+  ) {
+    if (!session?.id) {
+      return;
+    }
+
+    setActivePage?.(
+      "history"
     );
   }
 
@@ -97,82 +149,97 @@ function DashboardPage({
   return (
     <main className="mx-auto w-full max-w-[1500px] px-6 py-10 lg:px-10">
 
-      <DashboardHeader
-        onResearch={() =>
-          onStartResearch?.("")
-        }
-      />
+      {!researchMode && (
+        <DashboardHeader
+          onResearch={() =>
+            startResearch("")
+          }
+        />
+      )}
 
 
-      <Overview
-        sessions={
-          sessions
+      <div
+        className={
+          researchMode
+            ? ""
+            : "mt-9"
         }
-        watchlist={
-          watchlist
-        }
-        loading={
-          loading
-        }
-        onResearchHistory={() =>
-          setActivePage?.(
-            "history"
-          )
-        }
-        onWatchlist={() =>
-          setActivePage?.(
-            "watchlist"
-          )
-        }
-      />
+      >
 
-
-      <div className="mt-10">
-
-        <QuickActions
-          onAction={
-            handleQuickAction
+        <ResearchPage
+          key={
+            initialSessionId ||
+            researchDraft ||
+            "new-research"
+          }
+          initialSessionId={
+            initialSessionId
+          }
+          initialQuery={
+            researchDraft
+          }
+          onResearchStarted={() =>
+            setResearchMode(
+              true
+            )
+          }
+          onEndResearch={
+            handleEndResearch
           }
         />
 
       </div>
 
 
-      <div className="mt-10 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      {!researchMode && (
+        <>
 
-        <RecentResearch
-          sessions={
-            sessions
-          }
-          loading={
-            loading
-          }
-          onOpenSession={
-            onOpenSession
-          }
-          onViewAll={() =>
-            setActivePage?.(
-              "history"
-            )
-          }
-        />
+          <div className="mt-10">
+
+            <QuickActions
+              onAction={
+                startResearch
+              }
+            />
+
+          </div>
 
 
-        <WatchlistPreview
-          watchlist={
-            watchlist
-          }
-          loading={
-            loading
-          }
-          onViewAll={() =>
-            setActivePage?.(
-              "watchlist"
-            )
-          }
-        />
+          <div className="mt-10 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
 
-      </div>
+            <RecentResearch
+              sessions={
+                sessions
+              }
+              loading={
+                loading
+              }
+              onViewAll={() =>
+                setActivePage?.(
+                  "history"
+                )
+              }
+            />
+
+
+            <WatchlistPreview
+              watchlist={
+                watchlist
+              }
+              loading={
+                loading
+              }
+              onViewAll={() =>
+                setActivePage?.(
+                  "watchlist"
+                )
+              }
+            />
+
+          </div>
+
+        </>
+      )}
 
     </main>
   );
@@ -209,14 +276,18 @@ function DashboardHeader({
 
       <button
         type="button"
-        onClick={onResearch}
+        onClick={
+          onResearch
+        }
         className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-black px-5 text-xs font-semibold text-white transition hover:bg-[#222]"
       >
+
         Start Research
 
         <ArrowRight
           size={14}
         />
+
       </button>
 
     </header>
@@ -224,102 +295,9 @@ function DashboardHeader({
 }
 
 
-function Overview({
-  sessions,
-  watchlist,
-  loading,
-  onResearchHistory,
-  onWatchlist,
-}) {
-  return (
-    <section className="mt-8 grid gap-4 md:grid-cols-2">
-
-      <OverviewCard
-        label="Research Sessions"
-        value={
-          loading
-            ? "—"
-            : sessions.length
-        }
-        description="Persistent research conversations"
-        icon={History}
-        onClick={
-          onResearchHistory
-        }
-      />
-
-
-      <OverviewCard
-        label="Watchlist"
-        value={
-          loading
-            ? "—"
-            : watchlist.length
-        }
-        description="Companies currently monitored"
-        icon={Eye}
-        onClick={
-          onWatchlist
-        }
-      />
-
-    </section>
-  );
-}
-
-
-function OverviewCard({
-  label,
-  value,
-  description,
-  icon: Icon,
-  onClick,
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group w-full rounded-[20px] border border-[#deded9] bg-white p-6 text-left transition duration-200 hover:-translate-y-0.5 hover:border-[#c8c8c2] hover:shadow-[0_12px_35px_rgba(0,0,0,0.05)]"
-    >
-
-      <div className="flex items-start justify-between">
-
-        <div>
-
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#999]">
-            {label}
-          </p>
-
-
-          <p className="mt-4 text-4xl font-semibold tracking-[-0.05em]">
-            {value}
-          </p>
-
-
-          <p className="mt-2 text-xs text-[#888]">
-            {description}
-          </p>
-
-        </div>
-
-
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white transition duration-200 group-hover:scale-105">
-
-          <Icon size={15} />
-
-        </div>
-
-      </div>
-
-    </button>
-  );
-}
-
-
 function RecentResearch({
   sessions,
   loading,
-  onOpenSession,
   onViewAll,
 }) {
   const recent =
@@ -333,7 +311,9 @@ function RecentResearch({
         title="Recent Research"
         subtitle="Your latest research sessions"
         action="View History"
-        onAction={onViewAll}
+        onAction={
+          onViewAll
+        }
       />
 
 
@@ -352,10 +332,8 @@ function RecentResearch({
               <button
                 key={session.id}
                 type="button"
-                onClick={() =>
-                  onOpenSession?.(
-                    session.id
-                  )
+                onClick={
+                  onViewAll
                 }
                 className="group flex w-full items-center justify-between gap-5 px-6 py-5 text-left transition hover:bg-[#fafaf8]"
               >
@@ -418,7 +396,9 @@ function WatchlistPreview({
         title="Watchlist"
         subtitle="Companies you are monitoring"
         action="Open Watchlist"
-        onAction={onViewAll}
+        onAction={
+          onViewAll
+        }
       />
 
 
@@ -439,6 +419,7 @@ function WatchlistPreview({
 
               const symbol =
                 getSymbol(item);
+
 
               return (
                 <div
@@ -517,7 +498,9 @@ function SectionHeader({
 
       <button
         type="button"
-        onClick={onAction}
+        onClick={
+          onAction
+        }
         className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#777] transition hover:text-black"
       >
         {action}
@@ -571,7 +554,9 @@ function getItems(
   result,
   key
 ) {
-  if (Array.isArray(result)) {
+  if (
+    Array.isArray(result)
+  ) {
     return result;
   }
 
@@ -626,8 +611,10 @@ function formatDate(value) {
     return "Previous research";
   }
 
+
   const date =
     new Date(value);
+
 
   if (
     Number.isNaN(
@@ -636,6 +623,7 @@ function formatDate(value) {
   ) {
     return "Previous research";
   }
+
 
   return new Intl.DateTimeFormat(
     "en-US",

@@ -16,7 +16,8 @@ import ResearchResult from "../components/research/ResearchResult";
 function ResearchPage({
   initialSessionId = null,
   initialQuery = "",
-  onNewSession,
+  onResearchStarted,
+  onEndResearch,
 }) {
   const [query, setQuery] =
     useState(initialQuery);
@@ -44,11 +45,6 @@ function ResearchPage({
     useState("");
 
   const [
-    toolResults,
-    setToolResults,
-  ] = useState([]);
-
-  const [
     priceHistory,
     setPriceHistory,
   ] = useState({});
@@ -72,10 +68,7 @@ function ResearchPage({
         initialSessionId
       );
     } else {
-      setSessionId(null);
-      setMessages([]);
-      setToolResults([]);
-      setPriceHistory({});
+      resetResearchState();
     }
   }, [initialSessionId]);
 
@@ -88,19 +81,29 @@ function ResearchPage({
       setError("");
 
       setSessionId(id);
-      setToolResults([]);
-      setPriceHistory({});
 
       const result =
         await getSessionMessages(
           id
         );
 
-      setMessages(
+      const loadedMessages =
         getMessageItems(
           result
-        )
+        );
+
+      setMessages(
+        loadedMessages
       );
+
+
+      await loadHistoriesFromMessages(
+        loadedMessages
+      );
+
+
+      onResearchStarted?.();
+
     } catch (err) {
       console.error(err);
 
@@ -108,6 +111,7 @@ function ResearchPage({
         err.message ||
           "Unable to load research session."
       );
+
     } finally {
       setHistoryLoading(false);
     }
@@ -132,9 +136,13 @@ function ResearchPage({
     }
 
 
+    onResearchStarted?.();
+
+
     const userMessage = {
       role: "user",
       content: cleanQuery,
+      tool_results: [],
     };
 
 
@@ -145,12 +153,10 @@ function ResearchPage({
       ]
     );
 
+
     setQuery("");
     setLoading(true);
     setError("");
-
-    setToolResults([]);
-    setPriceHistory({});
 
 
     try {
@@ -175,11 +181,18 @@ function ResearchPage({
       }
 
 
+      const results =
+        result.tool_results ||
+        [];
+
+
       const assistantMessage = {
         role: "assistant",
         content:
           result.response ||
           "No response returned.",
+        tool_results:
+          results,
       };
 
 
@@ -191,38 +204,10 @@ function ResearchPage({
       );
 
 
-      const results =
-        result.tool_results ||
-        [];
-
-
-      setToolResults(
+      await loadHistoriesFromToolResults(
         results
       );
 
-
-      const marketResult =
-        results.find(
-          (item) =>
-            item.tool ===
-            "market_data"
-        );
-
-
-      const companies =
-        marketResult
-          ?.data?.data ||
-        [];
-
-
-      if (
-        companies.length >
-        0
-      ) {
-        await loadPriceHistory(
-          companies
-        );
-      }
     } catch (err) {
       console.error(err);
 
@@ -230,35 +215,126 @@ function ResearchPage({
         err.message ||
           "Research failed. Please try again."
       );
+
     } finally {
       setLoading(false);
     }
   }
 
 
-  async function loadPriceHistory(
-    companies
+  async function loadHistoriesFromMessages(
+    loadedMessages
   ) {
+    const symbols =
+      new Set();
+
+
+    loadedMessages.forEach(
+      (message) => {
+
+        const results =
+          getToolResults(
+            message
+          );
+
+
+        const marketResult =
+          results.find(
+            (item) =>
+              item.tool ===
+              "market_data"
+          );
+
+
+        const companies =
+          marketResult
+            ?.data?.data ||
+          [];
+
+
+        companies.forEach(
+          (company) => {
+            if (
+              company.symbol
+            ) {
+              symbols.add(
+                company.symbol
+              );
+            }
+          }
+        );
+      }
+    );
+
+
+    await loadPriceHistory(
+      [...symbols]
+    );
+  }
+
+
+  async function loadHistoriesFromToolResults(
+    results
+  ) {
+    const marketResult =
+      results.find(
+        (item) =>
+          item.tool ===
+          "market_data"
+      );
+
+
+    const companies =
+      marketResult
+        ?.data?.data ||
+      [];
+
+
+    const symbols =
+      companies
+        .map(
+          (company) =>
+            company.symbol
+        )
+        .filter(Boolean);
+
+
+    await loadPriceHistory(
+      symbols
+    );
+  }
+
+
+  async function loadPriceHistory(
+    symbols
+  ) {
+    if (
+      symbols.length === 0
+    ) {
+      return;
+    }
+
+
     try {
       setMarketLoading(true);
 
+
+      const uniqueSymbols =
+        [...new Set(symbols)];
+
+
       const results =
         await Promise.allSettled(
-          companies.map(
+          uniqueSymbols.map(
             async (
-              company
+              symbol
             ) => {
-              const symbol =
-                company.symbol;
-
-              if (!symbol) {
-                return null;
-              }
 
               const result =
                 await getMarketHistory(
                   symbol
                 );
+
 
               return {
                 symbol,
@@ -269,11 +345,12 @@ function ResearchPage({
         );
 
 
-      const history = {};
+      const newHistory = {};
 
 
       results.forEach(
         (item) => {
+
           if (
             item.status !==
               "fulfilled" ||
@@ -290,26 +367,27 @@ function ResearchPage({
             item.value;
 
 
-          const normalized =
+          newHistory[symbol] =
             normalizeHistory(
               result
             );
-
-
-          history[symbol] =
-            normalized;
         }
       );
 
 
       setPriceHistory(
-        history
+        (current) => ({
+          ...current,
+          ...newHistory,
+        })
       );
+
     } catch (err) {
       console.error(
         "Price history error:",
         err
       );
+
     } finally {
       setMarketLoading(
         false
@@ -318,15 +396,19 @@ function ResearchPage({
   }
 
 
-  function startNewResearch() {
+  function resetResearchState() {
     setSessionId(null);
     setMessages([]);
-    setToolResults([]);
     setPriceHistory({});
     setError("");
     setQuery("");
+  }
 
-    onNewSession?.();
+
+  function handleEndResearch() {
+    resetResearchState();
+
+    onEndResearch?.();
   }
 
 
@@ -336,19 +418,22 @@ function ResearchPage({
 
 
   return (
-    <main className="mx-auto w-full max-w-[1200px] px-6 py-10 lg:px-10">
+    <section>
 
-      <ResearchHeader
-        sessionId={
-          sessionId
+      <ResearchWorkspaceHeader
+        active={
+          Boolean(
+            sessionId ||
+            messages.length
+          )
         }
-        onNewResearch={
-          startNewResearch
+        onEndResearch={
+          handleEndResearch
         }
       />
 
 
-      <div className="mt-8">
+      <div className="mt-6">
 
         <ResearchInput
           query={query}
@@ -380,9 +465,6 @@ function ResearchPage({
         loading={
           pageLoading
         }
-        toolResults={
-          toolResults
-        }
         priceHistory={
           priceHistory
         }
@@ -391,55 +473,82 @@ function ResearchPage({
         }
       />
 
-    </main>
+    </section>
   );
 }
 
 
-function ResearchHeader({
-  sessionId,
-  onNewResearch,
+function ResearchWorkspaceHeader({
+  active,
+  onEndResearch,
 }) {
   return (
-    <header className="flex flex-col justify-between gap-6 border-b border-[#deded9] pb-8 md:flex-row md:items-end">
+    <div className="flex items-center justify-between gap-4">
 
       <div>
 
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#999]">
-          AI Research Workspace
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#999]">
+          Research Workspace
         </p>
 
-
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.05em] md:text-5xl">
-          Investment Research
-        </h1>
-
-
-        <p className="mt-4 max-w-2xl text-sm leading-6 text-[#777]">
-          Ask about company
-          fundamentals, comparisons,
-          financial news, filings,
-          risks or investment
-          recommendations.
-        </p>
+        <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em]">
+          Ask a research question
+        </h2>
 
       </div>
 
 
-      {sessionId && (
+      {active && (
         <button
           type="button"
           onClick={
-            onNewResearch
+            onEndResearch
           }
-          className="h-10 rounded-xl border border-[#deded9] bg-white px-4 text-xs font-semibold transition hover:border-black"
+          className="rounded-xl border border-[#deded9] bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] transition hover:border-black hover:bg-black hover:text-white"
         >
-          New Research
+          End Research
         </button>
       )}
 
-    </header>
+    </div>
   );
+}
+
+
+function getToolResults(
+  message
+) {
+  const results =
+    message?.tool_results;
+
+
+  if (
+    Array.isArray(results)
+  ) {
+    return results;
+  }
+
+
+  if (
+    typeof results ===
+    "string"
+  ) {
+    try {
+      const parsed =
+        JSON.parse(results);
+
+      return Array.isArray(
+        parsed
+      )
+        ? parsed
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+
+  return [];
 }
 
 

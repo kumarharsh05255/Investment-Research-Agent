@@ -97,7 +97,9 @@ def research(data: dict):
             history=history,
         )
 
-        response = agent_result["response"]
+        response = (
+            agent_result["response"]
+        )
 
         tool_results = (
             agent_result["tool_results"]
@@ -111,6 +113,7 @@ def research(data: dict):
                 "session_id": session_id,
                 "role": "user",
                 "content": query,
+                "tool_results": [],
             })
             .execute()
         )
@@ -123,6 +126,7 @@ def research(data: dict):
                 "session_id": session_id,
                 "role": "assistant",
                 "content": response,
+                "tool_results": tool_results,
             })
             .execute()
         )
