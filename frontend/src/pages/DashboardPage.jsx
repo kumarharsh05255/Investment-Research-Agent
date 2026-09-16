@@ -6,13 +6,14 @@ import {
 import {
   ArrowRight,
   Clock3,
-  TrendingUp,
 } from "lucide-react";
 
-import QuickActions from "../components/dashboard/QuickActions";
 import ResearchPage from "./ResearchPage";
 
+import WatchlistSparkline from "../components/dashboard/WatchlistSparkline";
+
 import {
+  getMarketHistory,
   getSessions,
   getWatchlist,
 } from "../services/api";
@@ -44,6 +45,16 @@ function DashboardPage({
     setResearchDraft,
   ] = useState("");
 
+  const [
+    watchlistHistory,
+    setWatchlistHistory,
+  ] = useState({});
+
+  const [
+    historyLoading,
+    setHistoryLoading,
+  ] = useState(false);
+
 
   useEffect(() => {
     loadDashboard();
@@ -55,6 +66,15 @@ function DashboardPage({
       setResearchMode(true);
     }
   }, [initialSessionId]);
+
+
+  useEffect(() => {
+    if (watchlist.length > 0) {
+      loadWatchlistHistory(
+        watchlist
+      );
+    }
+  }, [watchlist]);
 
 
   async function loadDashboard() {
@@ -108,6 +128,82 @@ function DashboardPage({
   }
 
 
+  async function loadWatchlistHistory(
+    items
+  ) {
+    try {
+      setHistoryLoading(true);
+
+
+      const symbols = [
+        ...new Set(
+          items
+            .map(
+              (item) =>
+                getSymbol(item)
+            )
+            .filter(Boolean)
+        ),
+      ];
+
+
+      const results =
+        await Promise.allSettled(
+          symbols.map(
+            async (symbol) => {
+
+              const result =
+                await getMarketHistory(
+                  symbol
+                );
+
+              return {
+                symbol,
+                result,
+              };
+            }
+          )
+        );
+
+
+      const histories = {};
+
+
+      results.forEach(
+        (item) => {
+
+          if (
+            item.status !==
+            "fulfilled"
+          ) {
+            return;
+          }
+
+
+          histories[
+            item.value.symbol
+          ] =
+            item.value.result;
+        }
+      );
+
+
+      setWatchlistHistory(
+        histories
+      );
+
+    } catch (error) {
+      console.error(
+        "Watchlist history error:",
+        error
+      );
+
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+
   function startResearch(
     query = ""
   ) {
@@ -130,19 +226,6 @@ function DashboardPage({
     onClearSession?.();
 
     loadDashboard();
-  }
-
-
-  function openSession(
-    session
-  ) {
-    if (!session?.id) {
-      return;
-    }
-
-    setActivePage?.(
-      "history"
-    );
   }
 
 
@@ -192,53 +275,45 @@ function DashboardPage({
 
 
       {!researchMode && (
-        <>
 
-          <div className="mt-10">
+        <div className="mt-10 grid gap-6 xl:grid-cols-2">
 
-            <QuickActions
-              onAction={
-                startResearch
-              }
-            />
-
-          </div>
-
-
-          <div className="mt-10 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-
-            <RecentResearch
-              sessions={
-                sessions
-              }
-              loading={
-                loading
-              }
-              onViewAll={() =>
-                setActivePage?.(
-                  "history"
-                )
-              }
-            />
+          <RecentResearch
+            sessions={
+              sessions
+            }
+            loading={
+              loading
+            }
+            onViewAll={() =>
+              setActivePage?.(
+                "history"
+              )
+            }
+          />
 
 
-            <WatchlistPreview
-              watchlist={
-                watchlist
-              }
-              loading={
-                loading
-              }
-              onViewAll={() =>
-                setActivePage?.(
-                  "watchlist"
-                )
-              }
-            />
+          <WatchlistPreview
+            watchlist={
+              watchlist
+            }
+            loading={
+              loading
+            }
+            history={
+              watchlistHistory
+            }
+            historyLoading={
+              historyLoading
+            }
+            onViewAll={() =>
+              setActivePage?.(
+                "watchlist"
+              )
+            }
+          />
 
-          </div>
-
-        </>
+        </div>
       )}
 
     </main>
@@ -301,7 +376,7 @@ function RecentResearch({
   onViewAll,
 }) {
   const recent =
-    sessions.slice(0, 5);
+    sessions.slice(0, 4);
 
 
   return (
@@ -309,7 +384,7 @@ function RecentResearch({
 
       <SectionHeader
         title="Recent Research"
-        subtitle="Your latest research sessions"
+        subtitle="Latest sessions"
         action="View History"
         onAction={
           onViewAll
@@ -335,22 +410,22 @@ function RecentResearch({
                 onClick={
                   onViewAll
                 }
-                className="group flex w-full items-center justify-between gap-5 px-6 py-5 text-left transition hover:bg-[#fafaf8]"
+                className="group flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[#fafaf8]"
               >
 
                 <div className="min-w-0">
 
-                  <p className="truncate text-sm font-semibold">
+                  <p className="truncate text-[13px] font-semibold">
                     {getSessionTitle(
                       session
                     )}
                   </p>
 
 
-                  <div className="mt-2 flex items-center gap-1.5 text-[10px] text-[#999]">
+                  <div className="mt-2 flex items-center gap-1.5 text-[9px] text-[#999]">
 
                     <Clock3
-                      size={11}
+                      size={10}
                     />
 
                     {formatDate(
@@ -363,7 +438,7 @@ function RecentResearch({
 
 
                 <ArrowRight
-                  size={14}
+                  size={13}
                   className="shrink-0 text-[#aaa] transition group-hover:translate-x-1 group-hover:text-black"
                 />
 
@@ -383,10 +458,12 @@ function RecentResearch({
 function WatchlistPreview({
   watchlist,
   loading,
+  history,
+  historyLoading,
   onViewAll,
 }) {
   const visible =
-    watchlist.slice(0, 5);
+    watchlist.slice(0, 6);
 
 
   return (
@@ -428,12 +505,12 @@ function WatchlistPreview({
                     symbol ||
                     index
                   }
-                  className="flex items-center justify-between px-6 py-5"
+                  className="flex min-h-[82px] items-center justify-between gap-6 px-6 py-4"
                 >
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-4">
 
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-black text-[10px] font-bold text-white">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black text-[10px] font-bold text-white">
                       {symbol.slice(
                         0,
                         2
@@ -441,13 +518,13 @@ function WatchlistPreview({
                     </div>
 
 
-                    <div>
+                    <div className="min-w-0">
 
                       <p className="text-sm font-semibold">
                         {symbol}
                       </p>
 
-                      <p className="mt-1 text-[10px] uppercase tracking-[0.1em] text-[#999]">
+                      <p className="mt-1 text-[9px] uppercase tracking-[0.12em] text-[#999]">
                         Equity
                       </p>
 
@@ -456,9 +533,15 @@ function WatchlistPreview({
                   </div>
 
 
-                  <TrendingUp
-                    size={14}
-                    className="text-[#888]"
+                  <WatchlistSparkline
+                    history={
+                      history[
+                        symbol
+                      ]
+                    }
+                    loading={
+                      historyLoading
+                    }
                   />
 
                 </div>

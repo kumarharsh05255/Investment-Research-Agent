@@ -110,3 +110,15 @@ button {
 .text-balance {
   text-wrap: balance;
 }
+
+.sparkline-path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw-sparkline 1.2s ease-out forwards;
+}
+
+@keyframes draw-sparkline {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
