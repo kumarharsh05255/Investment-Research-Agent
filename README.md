@@ -10,7 +10,6 @@ The project has two applications:
 > This application provides research assistance, not financial advice. Market data and third-party API responses can be delayed, incomplete, or unavailable.
 
 ## Features
-
 - Natural-language financial research through a tool-using LangChain agent.
 - Company fundamentals and six-month price history through Yahoo Finance via `yfinance`.
 - Recent financial news from NewsAPI with simple positive, negative, or neutral sentiment labels.
