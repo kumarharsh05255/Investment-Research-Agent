@@ -115,17 +115,22 @@ flowchart TD
 ```text
 .
 ├── backend/
-│   ├── main.py                         FastAPI routes
+│   ├── .env.example                    Required environment variable template
+│   ├── main.py                         FastAPI routes and market endpoints
 │   ├── agent.py                        LangChain agent and tool collection
-│   ├── database.py                     Supabase client
-│   ├── prompts.py                      Agent scope and routing rules
-│   ├── config/recommendation_rules.json BUY/HOLD/AVOID thresholds
+│   ├── database.py                     Supabase client initialization
+│   ├── logger.py                       Application logging configuration
+│   ├── prompts.py                      Agent scope, grounding, and routing rules
+│   ├── config/
+│   │   └── recommendation_rules.json   BUY/HOLD/AVOID thresholds
 │   ├── documents/                      Source PDFs grouped by ticker
-│   ├── chroma_db/                      Persisted local vector store
+│   ├── chroma_db/                      Local generated vector-store data (ignored)
 │   ├── rag/
 │   │   ├── ingest.py                   PDF ingestion and embedding creation
 │   │   ├── retriever.py                Semantic document search tool
-│   │   └── text_chunker.py             Text and table-aware chunking
+│   │   ├── text_chunker.py             Text and table-aware chunking
+│   │   ├── table_parser.py             Structured table parsing helpers
+│   │   └── table_section_splitter.py   Table-section boundary handling
 │   └── tools/
 │       ├── market.py                   Fundamentals and price history
 │       ├── news.py                     NewsAPI retrieval and sentiment
@@ -133,14 +138,58 @@ flowchart TD
 │       ├── datetime_tool.py            Current date and time
 │       └── recommendation.py            Rule-based recommendation
 ├── frontend/
-│   ├── src/App.jsx                     Application shell and page routing
-│   ├── src/services/api.js             Backend HTTP client
-│   ├── src/pages/                      Dashboard, research, history, watchlist
-│   └── src/components/                 Layout, charts, research, and UI components
+│   ├── package.json                    Vite scripts and frontend dependencies
+│   ├── vite.config.js                  Vite, React, and Tailwind configuration
+│   ├── eslint.config.js                ESLint configuration
+│   ├── index.html                      Browser entry document
+│   ├── public/                         Static public assets
+│   └── src/
+│       ├── main.jsx                    React bootstrap and StrictMode root
+│       ├── App.jsx                     Application shell and page routing
+│       ├── index.css                   Global styles and Tailwind entry
+│       ├── services/api.js              Backend HTTP client
+│       ├── pages/
+│       │   ├── DashboardPage.jsx       Dashboard and embedded research view
+│       │   ├── ResearchPage.jsx        Query submission and session loading
+│       │   ├── HistoryPage.jsx          Persistent session history
+│       │   └── WatchlistPage.jsx        Watchlist CRUD and market data
+│       └── components/
+│           ├── charts/PriceChart.jsx   Historical price chart
+│           ├── dashboard/               Dashboard cards and previews
+│           ├── layout/                  Sidebar and top navigation
+│           ├── research/                Research input, results, sources, sentiment
+│           └── ui/                      Loading, empty, and section states
+├── latest/                              Separate frontend snapshot, not active
 └── README.md
 ```
 
-The `latest/` directory is a separate frontend snapshot and is not the active frontend used by the project. Run the application from `backend/` and `frontend/`.
+Generated or local-only paths such as `backend/.venv/`, `backend/chroma_db/`, Python caches, `node_modules/`, and `.env` are excluded from the source layout above. The `latest/` directory is a separate frontend snapshot and is not the active frontend used by the project. Run the application from `backend/` and `frontend/`.
+
+### Module Reference
+
+**Backend**
+
+- `main.py` exposes health, research, session, watchlist, company overview, and price-history endpoints.
+- `agent.py` builds the Groq-backed LangChain agent, injects conversation history, and normalizes returned tool messages.
+- `database.py` creates the Supabase client from environment variables.
+- `prompts.py` defines the finance-only scope, evidence-grounding rules, tool-selection policy, and response style.
+- `logger.py` provides the shared logger used by the agent and tools.
+- `rag/ingest.py` converts PDFs into metadata-rich embedded chunks; `rag/retriever.py` searches the persisted collection.
+- `rag/text_chunker.py`, `rag/table_parser.py`, and `rag/table_section_splitter.py` preserve readable text and table sections during document preparation.
+- `tools/market.py`, `tools/news.py`, `tools/web_search.py`, `tools/datetime_tool.py`, and `tools/recommendation.py` implement the agent's external and deterministic capabilities.
+
+**Frontend**
+
+- `App.jsx` owns page selection and the active research session.
+- `Sidebar.jsx` and `Topbar.jsx` provide the application shell and navigation.
+- `DashboardPage.jsx` combines recent sessions, watchlist previews, and research.
+- `ResearchPage.jsx` submits queries, loads session messages, and requests chart history.
+- `HistoryPage.jsx` lists and continues saved conversations.
+- `WatchlistPage.jsx` adds, removes, refreshes, and displays tracked symbols.
+- `ResearchResult.jsx`, `SourceList.jsx`, `SentimentBadge.jsx`, and `PriceChart.jsx` render research evidence and visualizations.
+- `MetricCard.jsx`, `QuickActions.jsx`, `RecentResearch.jsx`, `WatchlistPreview.jsx`, and `WatchlistSparkline.jsx` compose dashboard summaries.
+- `EmptyState.jsx`, `LoadingState.jsx`, and `SectionHeader.jsx` provide shared UI states.
+- `services/api.js` centralizes requests for research, sessions, watchlists, market overviews, and price history.
 
 ## Prerequisites
 
