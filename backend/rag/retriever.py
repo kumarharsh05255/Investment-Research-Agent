@@ -9,7 +9,7 @@ from logger import logger
 
 CHROMA_DIR = Path(__file__).parent.parent / "chroma_db"
 
-MAX_CHUNK_CHARS = 1800
+MAX_CHUNK_CHARS = 1200
 
 
 embeddings = HuggingFaceEmbeddings(
@@ -80,14 +80,14 @@ def document_search(
         if search_filter:
             results = vector_store.similarity_search_with_score(
                 query=query,
-                k=4,
+                k=3,
                 filter=search_filter,
             )
 
         else:
             results = vector_store.similarity_search_with_score(
                 query=query,
-                k=4,
+                k=3,
             )
 
         documents = []

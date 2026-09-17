@@ -25,9 +25,6 @@ def get_document_type(filename):
     if "earnings" in name:
         return "earnings"
 
-    if "research_report" in name:
-        return "research_report"
-
     return "other"
 
 

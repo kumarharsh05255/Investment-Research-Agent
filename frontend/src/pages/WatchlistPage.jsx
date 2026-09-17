@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import {
   Loader2,
@@ -58,6 +61,7 @@ function WatchlistPage() {
       setWatchlist(items);
 
       await loadMarketData(items);
+
     } catch (err) {
       console.error(err);
 
@@ -65,6 +69,7 @@ function WatchlistPage() {
         err.message ||
           "Unable to load watchlist."
       );
+
     } finally {
       setLoading(false);
     }
@@ -98,6 +103,7 @@ function WatchlistPage() {
 
             return {
               symbol: ticker,
+
               data:
                 result?.data ||
                 result,
@@ -178,6 +184,7 @@ function WatchlistPage() {
       setSymbol("");
 
       await loadWatchlist();
+
     } catch (err) {
       console.error(err);
 
@@ -185,6 +192,7 @@ function WatchlistPage() {
         err.message ||
           "Unable to add company."
       );
+
     } finally {
       setAdding(false);
     }
@@ -235,6 +243,7 @@ function WatchlistPage() {
           return updated;
         }
       );
+
     } catch (err) {
       console.error(err);
 
@@ -254,6 +263,7 @@ function WatchlistPage() {
       await loadMarketData(
         watchlist
       );
+
     } catch (err) {
       console.error(err);
 
@@ -261,6 +271,7 @@ function WatchlistPage() {
         err.message ||
           "Unable to refresh market data."
       );
+
     } finally {
       setRefreshing(false);
     }
@@ -337,7 +348,7 @@ function PageHeader({
         </p>
 
 
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-black md:text-5xl">
+        <h1 className="page-title-glow mt-3 text-4xl font-semibold tracking-[-0.05em] text-black md:text-5xl">
           Watchlist
         </h1>
 
@@ -358,6 +369,7 @@ function PageHeader({
         disabled={refreshing}
         className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#deded9] bg-white px-4 text-xs font-semibold transition hover:border-black disabled:cursor-not-allowed disabled:opacity-50"
       >
+
         <RefreshCw
           size={14}
           className={
@@ -368,6 +380,7 @@ function PageHeader({
         />
 
         Refresh
+
       </button>
 
     </header>
@@ -394,9 +407,9 @@ function AddCompany({
 
 
           <p className="mt-1.5 text-xs text-[#888]">
-            Enter a stock ticker,
-            such as AAPL, MSFT or
-            NVDA.
+            Enter a Yahoo Finance ticker,
+            such as AAPL, MSFT, NVDA or
+            TCS.NS.
           </p>
 
         </div>
@@ -415,7 +428,7 @@ function AddCompany({
               )
             }
             placeholder="NVDA"
-            maxLength={10}
+            maxLength={15}
             className="h-11 min-w-0 flex-1 rounded-xl border border-[#deded9] bg-[#fafaf8] px-4 text-sm font-medium uppercase outline-none transition placeholder:text-[#aaa] focus:border-black focus:bg-white"
           />
 
@@ -530,6 +543,13 @@ function CompanyCard({
   data,
   onRemove,
 }) {
+  const displaySymbol =
+    getDisplaySymbol(symbol);
+
+  const currency =
+    data?.currency || "USD";
+
+
   return (
     <article className="overflow-hidden rounded-[22px] border border-[#deded9] bg-white transition duration-200 hover:border-[#c7c7c1] hover:shadow-[0_12px_35px_rgba(0,0,0,0.04)]">
 
@@ -539,7 +559,7 @@ function CompanyCard({
 
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black text-xs font-bold text-white">
 
-            {symbol?.slice(
+            {displaySymbol?.slice(
               0,
               2
             )}
@@ -550,16 +570,12 @@ function CompanyCard({
           <div>
 
             <h3 className="text-lg font-semibold tracking-[-0.03em]">
-
-              {symbol}
-
+              {displaySymbol}
             </h3>
 
 
             <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-[#999]">
-
               Public Equity
-
             </p>
 
           </div>
@@ -570,12 +586,14 @@ function CompanyCard({
         <button
           type="button"
           onClick={onRemove}
-          title={`Remove ${symbol}`}
+          title={`Remove ${displaySymbol}`}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#deded9] text-[#888] transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
         >
+
           <Trash2
             size={14}
           />
+
         </button>
 
       </div>
@@ -598,6 +616,7 @@ function CompanyCard({
         </div>
       ) : (
         <>
+
           <div className="px-6 py-6">
 
             <div className="flex items-end justify-between gap-4">
@@ -612,7 +631,8 @@ function CompanyCard({
                 <p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">
 
                   {formatCurrency(
-                    data.price
+                    data.price,
+                    currency
                   )}
 
                 </p>
@@ -639,7 +659,8 @@ function CompanyCard({
               label="Market Cap"
               value={
                 formatLargeNumber(
-                  data.market_cap
+                  data.market_cap,
+                  currency
                 )
               }
             />
@@ -659,7 +680,8 @@ function CompanyCard({
               label="EPS"
               value={
                 formatCurrency(
-                  data.eps
+                  data.eps,
+                  currency
                 )
               }
             />
@@ -669,12 +691,14 @@ function CompanyCard({
               label="Revenue"
               value={
                 formatLargeNumber(
-                  data.revenue
+                  data.revenue,
+                  currency
                 )
               }
             />
 
           </div>
+
         </>
       )}
 
@@ -701,16 +725,12 @@ function MiniMetric({
     <div className="border-r border-[#eeeeea] p-4 last:border-r-0">
 
       <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#aaa]">
-
         {label}
-
       </p>
 
 
       <p className="mt-2 text-sm font-semibold">
-
         {value}
-
       </p>
 
     </div>
@@ -821,6 +841,28 @@ function getSymbol(item) {
 }
 
 
+/*
+ * Hide Yahoo Finance exchange suffixes
+ * from the visual ticker label.
+ *
+ * Example:
+ * TCS.NS -> TCS
+ * RELIANCE.NS -> RELIANCE
+ *
+ * The original symbol is still used
+ * internally for API requests.
+ */
+function getDisplaySymbol(
+  symbol
+) {
+  if (!symbol) {
+    return "";
+  }
+
+  return symbol.split(".")[0];
+}
+
+
 function normalizeMarketData(
   result
 ) {
@@ -852,26 +894,48 @@ function normalizeMarketData(
 }
 
 
+/*
+ * Format normal monetary values using
+ * the currency returned by yfinance.
+ */
 function formatCurrency(
-  value
+  value,
+  currency = "USD"
 ) {
   if (value == null) {
     return "—";
   }
 
-  return new Intl.NumberFormat(
-    "en-US",
-    {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2,
-    }
-  ).format(value);
+  try {
+    return new Intl.NumberFormat(
+      getCurrencyLocale(
+        currency
+      ),
+      {
+        style: "currency",
+        currency:
+          currency || "USD",
+        maximumFractionDigits: 2,
+      }
+    ).format(
+      Number(value)
+    );
+
+  } catch {
+    return `${currency} ${Number(
+      value
+    ).toLocaleString()}`;
+  }
 }
 
 
+/*
+ * Format large monetary values such as
+ * market cap and revenue.
+ */
 function formatLargeNumber(
-  value
+  value,
+  currency = "USD"
 ) {
   if (value == null) {
     return "—";
@@ -880,44 +944,74 @@ function formatLargeNumber(
   const number =
     Number(value);
 
-  const absoluteValue =
-    Math.abs(number);
+  if (
+    Number.isNaN(number)
+  ) {
+    return "—";
+  }
+
+
+  let divisor = 1;
+  let suffix = "";
 
 
   if (
-    absoluteValue >=
+    Math.abs(number) >=
     1_000_000_000_000
   ) {
-    return `$${(
-      number /
-      1_000_000_000_000
-    ).toFixed(2)}T`;
-  }
+    divisor =
+      1_000_000_000_000;
 
+    suffix = "T";
 
-  if (
-    absoluteValue >=
+  } else if (
+    Math.abs(number) >=
     1_000_000_000
   ) {
-    return `$${(
-      number /
-      1_000_000_000
-    ).toFixed(2)}B`;
-  }
+    divisor =
+      1_000_000_000;
 
+    suffix = "B";
 
-  if (
-    absoluteValue >=
+  } else if (
+    Math.abs(number) >=
     1_000_000
   ) {
-    return `$${(
-      number /
-      1_000_000
-    ).toFixed(2)}M`;
+    divisor =
+      1_000_000;
+
+    suffix = "M";
   }
 
 
-  return `$${number.toLocaleString()}`;
+  const compactValue =
+    number / divisor;
+
+
+  try {
+    const formatted =
+      new Intl.NumberFormat(
+        getCurrencyLocale(
+          currency
+        ),
+        {
+          style: "currency",
+          currency:
+            currency || "USD",
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        }
+      ).format(
+        compactValue
+      );
+
+    return `${formatted}${suffix}`;
+
+  } catch {
+    return `${currency} ${compactValue.toFixed(
+      2
+    )}${suffix}`;
+  }
 }
 
 
@@ -931,6 +1025,38 @@ function formatRatio(
   return `${Number(
     value
   ).toFixed(2)}x`;
+}
+
+
+/*
+ * Intl can choose the appropriate currency
+ * symbol more reliably with a matching locale.
+ */
+function getCurrencyLocale(
+  currency
+) {
+  switch (currency) {
+    case "INR":
+      return "en-IN";
+
+    case "GBP":
+      return "en-GB";
+
+    case "EUR":
+      return "en-IE";
+
+    case "JPY":
+      return "ja-JP";
+
+    case "CAD":
+      return "en-CA";
+
+    case "AUD":
+      return "en-AU";
+
+    default:
+      return "en-US";
+  }
 }
 
 
