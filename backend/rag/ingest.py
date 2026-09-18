@@ -9,7 +9,7 @@ from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 
-from text_chunker import split_text_into_chunks
+from rag.text_chunker import split_text_into_chunks
 
 
 DOCUMENTS_DIR = Path(__file__).parent.parent / "documents"
