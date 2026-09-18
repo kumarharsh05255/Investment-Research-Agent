@@ -1,5 +1,13 @@
 import { useState } from "react";
 
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 
@@ -9,8 +17,8 @@ import WatchlistPage from "./pages/WatchlistPage";
 
 
 function App() {
-  const [activePage, setActivePage] =
-    useState("dashboard");
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [
     researchSessionId,
@@ -18,8 +26,41 @@ function App() {
   ] = useState(null);
 
 
+  // Convert the current URL into the page name
+  // expected by Sidebar and Topbar.
+  function getActivePage() {
+    if (
+      location.pathname === "/history"
+    ) {
+      return "history";
+    }
+
+    if (
+      location.pathname === "/watchlist"
+    ) {
+      return "watchlist";
+    }
+
+    return "dashboard";
+  }
+
+
+  const activePage =
+    getActivePage();
+
+
   function handleNavigation(page) {
-    setActivePage(page);
+    if (page === "history") {
+      navigate("/history");
+      return;
+    }
+
+    if (page === "watchlist") {
+      navigate("/watchlist");
+      return;
+    }
+
+    navigate("/");
   }
 
 
@@ -30,52 +71,12 @@ function App() {
       sessionId
     );
 
-    setActivePage(
-      "dashboard"
-    );
+    navigate("/");
   }
 
 
   function clearResearchSession() {
     setResearchSessionId(null);
-  }
-
-
-  function renderPage() {
-    switch (activePage) {
-
-      case "history":
-        return (
-          <HistoryPage
-            onContinueResearch={
-              openResearchSession
-            }
-          />
-        );
-
-
-      case "watchlist":
-        return (
-          <WatchlistPage />
-        );
-
-
-      case "dashboard":
-      default:
-        return (
-          <DashboardPage
-            setActivePage={
-              handleNavigation
-            }
-            initialSessionId={
-              researchSessionId
-            }
-            onClearSession={
-              clearResearchSession
-            }
-          />
-        );
-    }
   }
 
 
@@ -101,7 +102,57 @@ function App() {
         />
 
 
-        {renderPage()}
+        <Routes>
+
+          <Route
+            path="/"
+            element={
+              <DashboardPage
+                setActivePage={
+                  handleNavigation
+                }
+                initialSessionId={
+                  researchSessionId
+                }
+                onClearSession={
+                  clearResearchSession
+                }
+              />
+            }
+          />
+
+
+          <Route
+            path="/history"
+            element={
+              <HistoryPage
+                onContinueResearch={
+                  openResearchSession
+                }
+              />
+            }
+          />
+
+
+          <Route
+            path="/watchlist"
+            element={
+              <WatchlistPage />
+            }
+          />
+
+
+          <Route
+            path="*"
+            element={
+              <Navigate
+                to="/"
+                replace
+              />
+            }
+          />
+
+        </Routes>
 
       </div>
 
