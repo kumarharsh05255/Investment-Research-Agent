@@ -1,140 +1,459 @@
-from pathlib import Path
-
-from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.tools import tool
 
 from logger import logger
 
+from rag.document_finder import (
+    find_document,
+)
 
-CHROMA_DIR = Path(__file__).parent.parent / "chroma_db"
-
-MAX_CHUNK_CHARS = 1800
-
-
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+from rag.ingest import (
+    filing_already_indexed,
+    get_vector_store,
+    ingest_document,
 )
 
 
-vector_store = Chroma(
-    persist_directory=str(CHROMA_DIR),
-    embedding_function=embeddings,
-    collection_name="investment_research",
-)
+SUPPORTED_DOCUMENT_TYPES = {
+    "10k",
+    "earnings",
+}
+
+
+def build_filing_info(
+    filing,
+    document=None,
+):
+    """
+    Build consistent filing metadata
+    for tool responses.
+    """
+    info = {
+        "ticker":
+            filing.get(
+                "ticker"
+            ),
+
+        "form":
+            filing.get(
+                "form"
+            ),
+
+        "filing_date":
+            filing.get(
+                "filing_date"
+            ),
+
+        "accession_number":
+            filing.get(
+                "accession_number"
+            ),
+    }
+
+    if document:
+        info[
+            "sec_url"
+        ] = document.get(
+            "url"
+        )
+
+        info[
+            "original_format"
+        ] = document.get(
+            "format"
+        )
+
+    return info
 
 
 @tool
 def document_search(
     query: str,
-    company: str = None,
-    document_type: str = None,
+    company: str,
+    document_type: str,
 ):
     """
-    Search company SEC filings and earnings reports.
+    Search the latest official SEC
+    10-K or earnings filing.
 
-    Use this tool when the user asks about information from company documents,
-    such as risk factors, management discussion, strategy, competition,
-    regulatory risks, earnings details, or fundamentals not available
-    from market data.
+    company:
+        Stock ticker such as
+        AAPL, MSFT, NVDA.
 
-    company can be:
-    - AAPL
-    - MSFT
-    - NVDA
-
-    document_type can be:
-    - 10k
-    - earnings
+    document_type:
+        "10k" or "earnings"
     """
-
     try:
-        logger.info(
-            f"document_search called | company={company} | "
-            f"document_type={document_type} | query={query}"
+        company = (
+            company
+            .strip()
+            .upper()
         )
 
-        filter_conditions = []
+        document_type = (
+            document_type
+            .strip()
+            .lower()
+            .replace("-", "")
+            .replace("_", "")
+        )
 
-        if company:
-            filter_conditions.append(
-                {"company": company}
-            )
+        logger.info(
+            "document_search called | "
+            f"company={company} | "
+            f"document_type="
+            f"{document_type} | "
+            f"query={query}"
+        )
 
-        if document_type:
-            filter_conditions.append(
-                {"document_type": document_type}
-            )
+        if (
+            document_type
+            not in
+            SUPPORTED_DOCUMENT_TYPES
+        ):
+            return {
+                "success": False,
 
-        if len(filter_conditions) == 1:
-            search_filter = filter_conditions[0]
+                "reason":
+                    "unsupported_document_type",
 
-        elif len(filter_conditions) > 1:
-            search_filter = {
-                "$and": filter_conditions
+                "message": (
+                    "document_search only "
+                    "supports 10-K and "
+                    "earnings filings."
+                ),
+
+                "use_web_search":
+                    False,
             }
 
-        else:
-            search_filter = None
+        result = find_document(
+            ticker=company,
+            document_type=
+                document_type,
+        )
 
-        if search_filter:
-            results = vector_store.similarity_search_with_score(
-                query=query,
-                k=4,
-                filter=search_filter,
+        if not result.get(
+            "success"
+        ):
+            reason = result.get(
+                "reason",
+                "document_not_found",
+            )
+
+            logger.info(
+                "document_search failed | "
+                f"reason={reason}"
+            )
+
+            return {
+                "success": False,
+
+                "reason":
+                    reason,
+
+                "company":
+                    company,
+
+                "document_type":
+                    document_type,
+
+                "message": (
+                    "The requested official "
+                    "SEC filing could not be "
+                    "retrieved."
+                ),
+
+                "use_web_search":
+                    True,
+            }
+
+        filing = result[
+            "filing"
+        ]
+
+        document = result[
+            "document"
+        ]
+
+        filing_info = (
+            build_filing_info(
+                filing,
+                document,
+            )
+        )
+
+        vector_store = (
+            get_vector_store()
+        )
+
+        accession_number = filing[
+            "accession_number"
+        ]
+
+        already_indexed = (
+            filing_already_indexed(
+                vector_store,
+                accession_number,
+            )
+        )
+
+        if already_indexed:
+            logger.info(
+                "Using already indexed "
+                "SEC filing: "
+                f"{accession_number}"
             )
 
         else:
-            results = vector_store.similarity_search_with_score(
-                query=query,
-                k=4,
+            logger.info(
+                "SEC filing is not "
+                "indexed yet. "
+                "Starting ingestion."
             )
 
-        documents = []
+            ingestion = (
+                ingest_document(
+                    filing=filing,
+                    document=document,
+                    vector_store=
+                        vector_store,
+                )
+            )
 
-        for document, score in results:
-            text = document.page_content
+            if not ingestion.get(
+                "success"
+            ):
+                logger.error(
+                    "SEC filing ingestion "
+                    "failed"
+                )
 
-            if len(text) > MAX_CHUNK_CHARS:
-                text = text[:MAX_CHUNK_CHARS]
+                return {
+                    "success": False,
 
-            documents.append(
+                    "reason":
+                        "ingestion_failed",
+
+                    "filing":
+                        filing_info,
+
+                    "message": (
+                        "The official SEC "
+                        "filing was found, "
+                        "but ingestion into "
+                        "the RAG pipeline "
+                        "failed."
+                    ),
+
+                    "error":
+                        ingestion.get(
+                            "error"
+                        ),
+
+                    "use_web_search":
+                        True,
+
+                    "web_fallback_context": {
+                        "ticker":
+                            filing.get(
+                                "ticker"
+                            ),
+
+                        "form":
+                            filing.get(
+                                "form"
+                            ),
+
+                        "filing_date":
+                            filing.get(
+                                "filing_date"
+                            ),
+
+                        "document_type":
+                            filing.get(
+                                "document_type"
+                            ),
+
+                        "accession_number":
+                            accession_number,
+                    },
+                }
+
+        documents = (
+            vector_store
+            .similarity_search(
+                query,
+                k=4,
+                filter={
+                    "accession_number":
+                        accession_number
+                },
+            )
+        )
+
+        if not documents:
+            logger.info(
+                "No relevant chunks found "
+                "in indexed SEC filing"
+            )
+
+            return {
+                "success": False,
+
+                "reason":
+                    "no_relevant_chunks",
+
+                "filing":
+                    filing_info,
+
+                "message": (
+                    "The SEC filing was "
+                    "indexed, but no "
+                    "relevant evidence was "
+                    "retrieved."
+                ),
+
+                "use_web_search":
+                    True,
+
+                "web_fallback_context": {
+                    "ticker":
+                        filing.get(
+                            "ticker"
+                        ),
+
+                    "form":
+                        filing.get(
+                            "form"
+                        ),
+
+                    "filing_date":
+                        filing.get(
+                            "filing_date"
+                        ),
+
+                    "document_type":
+                        filing.get(
+                            "document_type"
+                        ),
+
+                    "accession_number":
+                        accession_number,
+                },
+            }
+
+        retrieved_documents = []
+
+        for item in documents:
+
+            metadata = (
+                item.metadata
+                or {}
+            )
+
+            retrieved_documents.append(
                 {
-                    "text": text,
-                    "company": document.metadata.get("company"),
-                    "document_type": document.metadata.get("document_type"),
-                    "source": document.metadata.get("source"),
-                    "page": document.metadata.get("page"),
-                    "score": score,
+                    "content":
+                        item.page_content[
+                            :1800
+                        ],
+
+                    "source":
+                        metadata.get(
+                            "source"
+                        ),
+
+                    "page":
+                        metadata.get(
+                            "page"
+                        ),
+
+                    "company":
+                        metadata.get(
+                            "company"
+                        ),
+
+                    "document_type":
+                        metadata.get(
+                            "document_type"
+                        ),
+
+                    "form":
+                        metadata.get(
+                            "form"
+                        ),
+
+                    "filing_date":
+                        metadata.get(
+                            "filing_date"
+                        ),
+
+                    "accession_number":
+                        metadata.get(
+                            "accession_number"
+                        ),
+
+                    "sec_url":
+                        metadata.get(
+                            "sec_url"
+                        ),
+
+                    "original_format":
+                        metadata.get(
+                            "original_format"
+                        ),
                 }
             )
 
         logger.info(
-            f"document_search completed successfully: "
-            f"{len(documents)} documents returned"
+            "document_search completed "
+            "successfully: "
+            f"{len(retrieved_documents)} "
+            "documents returned"
         )
 
         return {
             "success": True,
-            "data": documents,
+
+            "source":
+                "SEC EDGAR",
+
+            "filing":
+                filing_info,
+
+            "data":
+                retrieved_documents,
+
+            "use_web_search":
+                False,
         }
 
-    except Exception as e:
-        logger.exception("document_search failed")
+    except Exception as error:
+        logger.exception(
+            "document_search failed"
+        )
 
         return {
             "success": False,
-            "error": str(e),
+
+            "reason":
+                "document_search_failed",
+
+            "company":
+                company,
+
+            "document_type":
+                document_type,
+
+            "message": (
+                "An unexpected error "
+                "occurred while retrieving "
+                "the SEC filing."
+            ),
+
+            "error":
+                str(error),
+
+            "use_web_search":
+                True,
         }
-
-
-if __name__ == "__main__":
-    result = document_search.invoke(
-        {
-            "query": "What risks does NVIDIA face from China export controls?",
-            "company": "NVDA",
-            "document_type": "10k",
-        }
-    )
-
-    print(result)

@@ -14,7 +14,7 @@ def market_data(
     """
     Get market and fundamental data for one or more stock symbols.
 
-    Returns stock price, volume, market cap, valuation,
+    Returns stock price, currency, volume, market cap, valuation,
     growth, profitability, financial health, and cash flow.
 
     Historical price data is only included when include_history=True.
@@ -36,47 +36,85 @@ def market_data(
             historical_prices = {}
 
             if include_history:
-                history = stock.history(period="6mo")
+                history = stock.history(
+                    period="6mo"
+                )
 
                 for date, price in history["Close"].items():
                     if not math.isnan(price):
-                        historical_prices[str(date.date())] = round(price, 2)
+                        historical_prices[
+                            str(date.date())
+                        ] = round(price, 2)
 
             data = {
                 "symbol": symbol,
 
+                # Currency used by the stock's exchange.
+                "currency": (
+                    info.get("currency")
+                    or "USD"
+                ),
+
                 # Basic market data
-                "price": info.get("currentPrice"),
-                "volume": info.get("volume"),
-                "market_cap": info.get("marketCap"),
+                "price": info.get(
+                    "currentPrice"
+                ),
+                "volume": info.get(
+                    "volume"
+                ),
+                "market_cap": info.get(
+                    "marketCap"
+                ),
 
                 # Valuation
-                "pe_ratio": info.get("trailingPE"),
+                "pe_ratio": info.get(
+                    "trailingPE"
+                ),
 
                 # Earnings
-                "eps": info.get("trailingEps"),
+                "eps": info.get(
+                    "trailingEps"
+                ),
 
                 # Revenue
-                "revenue": info.get("totalRevenue"),
-                "revenue_growth": info.get("revenueGrowth"),
+                "revenue": info.get(
+                    "totalRevenue"
+                ),
+                "revenue_growth": info.get(
+                    "revenueGrowth"
+                ),
 
                 # Earnings growth
-                "eps_growth": info.get("earningsGrowth"),
+                "eps_growth": info.get(
+                    "earningsGrowth"
+                ),
 
                 # Profitability
-                "profit_margin": info.get("profitMargins"),
-                "return_on_equity": info.get("returnOnEquity"),
+                "profit_margin": info.get(
+                    "profitMargins"
+                ),
+                "return_on_equity": info.get(
+                    "returnOnEquity"
+                ),
 
                 # Financial health
-                "debt_to_equity": info.get("debtToEquity"),
-                "current_ratio": info.get("currentRatio"),
+                "debt_to_equity": info.get(
+                    "debtToEquity"
+                ),
+                "current_ratio": info.get(
+                    "currentRatio"
+                ),
 
                 # Cash generation
-                "free_cash_flow": info.get("freeCashflow"),
+                "free_cash_flow": info.get(
+                    "freeCashflow"
+                ),
             }
 
             if include_history:
-                data["history"] = historical_prices
+                data["history"] = (
+                    historical_prices
+                )
 
             results.append(data)
 
@@ -90,17 +128,27 @@ def market_data(
         }
 
     except Exception as e:
-        logger.exception("market_data failed")
+        logger.exception(
+            "market_data failed"
+        )
 
         return {
             "success": False,
-            "error": f"Market data error: {str(e)}",
+            "error": (
+                f"Market data error: {str(e)}"
+            ),
         }
 
 
 if __name__ == "__main__":
     print(
-        market_data.invoke({
-            "symbols": ["AAPL", "MSFT"]
-        })
+        market_data.invoke(
+            {
+                "symbols": [
+                    "AAPL",
+                    "TCS.NS",
+                    "RELIANCE.NS",
+                ]
+            }
+        )
     )
