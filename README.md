@@ -44,52 +44,6 @@ flowchart LR
     Ingest --> Chroma
 ```
 
-### Research Request Flow
-
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant F as FastAPI
-    participant S as Supabase
-    participant A as LangChain agent
-    participant T as Research tools
-    participant G as Groq model
-
-    B->>F: POST /research {query, session_id?}
-    alt Existing session
-        F->>S: Load ordered messages
-    else New session
-        F->>S: Create research_sessions row
-    end
-    F->>A: Query plus conversation history
-    A->>G: Select tools and compose answer
-    opt Current or company-specific facts
-        G->>T: Call minimum required tools
-        T-->>G: Market, news, web, document, or rule results
-    end
-    G-->>A: Grounded final response
-    A-->>F: Response plus tool_results
-    F->>S: Save user and assistant messages
-    F-->>B: JSON response with session_id and evidence
-```
-
-### Local Document RAG Pipeline
-
-```mermaid
-flowchart TD
-    PDFs[backend/documents/{company}/*.pdf] --> Read[Read PDF pages with PyMuPDF]
-    Read --> Markdown[Convert pages to Markdown]
-    Markdown --> Split[Recursive text chunker]
-    Split --> Metadata[Attach company, document type, source, and page]
-    Metadata --> Embed[Hugging Face sentence embeddings]
-    Embed --> Store[Rebuild ChromaDB collection]
-    Query[Agent document_search query] --> EmbedQuery[Embed query]
-    EmbedQuery --> Search[Similarity search, k=4]
-    Store --> Search
-    Search --> Evidence[Return excerpts and provenance]
-    Evidence --> Agent[Agent final response]
-```
-
 ### Frontend Navigation and Data Flow
 
 ```mermaid
